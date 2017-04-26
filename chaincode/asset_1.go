@@ -54,6 +54,8 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 		return t.Init(stub, "init", args)
 	} else if function == "initAssset" {
 		return t.initAssset(stub, args)
+	} else if function == "updateOwner" {
+		return t.updateOwner(stub, args)
 	}
 	fmt.Println("invoke did not find func: " + function) //error
 
@@ -132,6 +134,46 @@ func (t *SimpleChaincode) readState(stub shim.ChaincodeStubInterface, args []str
 	return valAsbytes, nil
 }
 
+// read function return value
+func (t *SimpleChaincode) updateOwner(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	var jsonResp string
+	var err error
+
+	if len(args) != 2 {
+		return nil, errors.New("Incorrect number of arguments. Expecting 2 args")
+	}
+
+	serialNo := args[0]
+	newOwner := args[1]
+	valAsbytes, err := stub.GetState(serialNo)
+	if err != nil {
+		jsonResp = "{\"Error\":\"Failed to get state for " + serialNo + "\"}"
+		return nil, errors.New(jsonResp)
+	}
+	dat, err := JSONtoArgs(valAsbytes)
+	if err != nil {
+		return nil, errors.New("unable to convert jsonToArgs for" + serialNo)
+	}
+
+	serialFromLedger := dat["serialNo"].(string)
+	partFromLeger := dat["partno"].(string)
+
+	myAsset := AssetObject{serialFromLedger, partFromLeger, newOwner}
+
+	buff, err := ARtoJSON(myAsset)
+	if err != nil {
+		errorStr := "initAssset() : Failed Cannot create object buffer for write : " + args[1]
+		fmt.Println(errorStr)
+		return nil, errors.New(errorStr)
+	}
+	err = stub.PutState(serialFromLedger, buff)
+	if err != nil {
+		fmt.Println("initAssset() : write error while inserting record\n")
+		return nil, errors.New("initAssset() : write error while inserting record : " + err.Error())
+	}
+	return nil, nil
+}
+
 func (t *SimpleChaincode) getAllKeys(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
 	if len(args) < 2 {
@@ -203,4 +245,16 @@ func ARtoJSON(ast AssetObject) ([]byte, error) {
 		return nil, err
 	}
 	return ajson, nil
+}
+
+// JSON To args[] - return a map of the JSON string
+func JSONtoArgs(Avalbytes []byte) (map[string]interface{}, error) {
+
+	var data map[string]interface{}
+
+	if err := json.Unmarshal(Avalbytes, &data); err != nil {
+		return nil, err
+	}
+
+	return data, nil
 }
