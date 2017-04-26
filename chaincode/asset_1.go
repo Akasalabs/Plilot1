@@ -54,7 +54,7 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 		return t.Init(stub, "init", args)
 	} else if function == "initAssset" {
 		return t.initAssset(stub, args)
-	} else if function == "updateOwner" {
+	} else if function == "ownerUpdation" {
 		return t.updateOwner(stub, args)
 	}
 	fmt.Println("invoke did not find func: " + function) //error
@@ -154,6 +154,7 @@ func (t *SimpleChaincode) updateOwner(stub shim.ChaincodeStubInterface, args []s
 	if err != nil {
 		return nil, errors.New("unable to convert jsonToArgs for" + serialNo)
 	}
+	fmt.Println(dat)
 
 	serialFromLedger := dat["serialNo"].(string)
 	partFromLeger := dat["partno"].(string)
