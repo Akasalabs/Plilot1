@@ -156,8 +156,10 @@ func (t *SimpleChaincode) updateOwner(stub shim.ChaincodeStubInterface, args []s
 	}
 	fmt.Println(dat)
 
-	serialFromLedger := dat["serialNo"].(string)
-	partFromLeger := dat["partno"].(string)
+	serialFromLedger := dat["Serialno"].(string)
+	fmt.Println(serialFromLedger)
+	partFromLeger := dat["Partno"].(string)
+	fmt.Println(partFromLeger)
 
 	myAsset := AssetObject{serialFromLedger, partFromLeger, newOwner}
 
