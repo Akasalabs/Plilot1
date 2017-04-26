@@ -68,6 +68,9 @@ func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function strin
 	if function == "readState" { //read a variable
 		return t.readState(stub, args)
 	}
+	if function == "keys" {
+		return t.getAllKeys(stub, args)
+	}
 	fmt.Println("query did not find func: " + function) //error
 
 	return nil, errors.New("Received unknown function query " + function)
@@ -127,6 +130,42 @@ func (t *SimpleChaincode) readState(stub shim.ChaincodeStubInterface, args []str
 	}
 
 	return valAsbytes, nil
+}
+
+func (t *SimpleChaincode) getAllKeys(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+
+	if len(args) < 2 {
+		return nil, errors.New("put operation must include two arguments, a key and value")
+	}
+
+	startKey := args[0]
+	endKey := args[1]
+
+	keysIter, err := stub.RangeQueryState(startKey, endKey)
+
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("keys operation failed. Error accessing state: %s", err))
+	}
+	defer keysIter.Close()
+	var keys []string
+	for keysIter.HasNext() {
+		response, _, iterErr := keysIter.Next()
+		if iterErr != nil {
+			return nil, errors.New(fmt.Sprintf("keys operation failed. Error accessing state: %s", err))
+		}
+		keys = append(keys, response)
+	}
+
+	for key, value := range keys {
+		fmt.Printf("key %d contains %s\n", key, value)
+	}
+
+	jsonKeys, err := json.Marshal(keys)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("keys operation failed. Error accessing state: %s", err))
+	}
+
+	return jsonKeys, nil
 }
 
 // CreateAssetObject creates an asset
