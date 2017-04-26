@@ -60,14 +60,15 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 	return nil, errors.New("Received unknown function invocation: " + function)
 }
 
+// Query queries the hyperledger
 func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
 	fmt.Println("query is running " + function)
 
 	// Handle different functions
-	//if function == "read" { //read a variable
-	//	return t.read(stub, args)
-	//}
-	//fmt.Println("query did not find func: " + function) //error
+	if function == "read" { //read a variable
+		return t.read(stub, args)
+	}
+	fmt.Println("query did not find func: " + function) //error
 
 	return nil, errors.New("Received unknown function query")
 }
@@ -81,18 +82,6 @@ func (t *SimpleChaincode) initAssset(stub shim.ChaincodeStubInterface, args []st
 		fmt.Println("initAsset(): Cannot create asset object ")
 		return nil, errors.New("initAsset(): Cannot create asset object")
 	}
-
-	// Check if the Owner ID specified is registered and valid
-
-	/*memberBytes := ValidateMember(stub, AssetObject)
-	ownerInfo := response.Payload
-	fmt.Println("Owner information  ", ownerInfo, AssetObject.Owner)
-	fmt.Println("response status : ", response.Status)
-	if response.Status != OK {
-		errorStr := "PostItem() : Failed Owner information not found for " + AssetObject.Owner
-		fmt.Println(errorStr)
-		return nil, errors.New(errorStr)
-	}*/
 
 	// check if the asset already exists
 	assestAsBytes, err := stub.GetState(AssetObject.Serialno)
@@ -121,7 +110,6 @@ func (t *SimpleChaincode) initAssset(stub shim.ChaincodeStubInterface, args []st
 	return nil, nil
 }
 
-/*
 // read function return value
 func (t *SimpleChaincode) read(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 	var name, jsonResp string
@@ -139,7 +127,7 @@ func (t *SimpleChaincode) read(stub shim.ChaincodeStubInterface, args []string) 
 	}
 
 	return valAsbytes, nil
-}*/
+}
 
 // CreateAssetObject creates an asset
 func CreateAssetObject(args []string) (AssetObject, error) {
@@ -177,29 +165,3 @@ func ARtoJSON(ast AssetObject) ([]byte, error) {
 	}
 	return ajson, nil
 }
-
-// ValidateMember if the User Information Exists in the block-chain
-/*func ValidateMember(stub shim.ChaincodeStubInterface, asset AssetObject) ([]byte, error) {
-
-	// Get the Asset Objects and Display it
-	AssetAsBytes, err := stub.GetState(asset.Serialno)
-	if err != nil {
-		fmt.Println("ValidateMember() : Failed - Cannot find valid owner record for Owner  ", asset.Owner)
-		jsonResp := "{\"Error\":\"Failed to get Owner Object Data for " + asset.Owner + "\"}"
-		return nil, errors.New(jsonResp)
-	}
-	if AssetAsBytes == nil {
-		fmt.Println("ValidateMember() : Failed - Incomplete owner record for owner  ", asset.Owner)
-		jsonResp := "{\"Error\":\"Failed - Incomplete information about the owner for " + asset.Owner + "\"}"
-		return nil, errors.New(jsonResp)
-	}
-
-	res := AssetAsBytes{}
-	json.Unmarshal(assestAsBytes, &res)
-	if res.Owner == AssetObject.Owner {
-		fmt.Println("This user arleady exists: " + AssetObject.Serialno)
-		fmt.Println(res)
-		return nil, errors.New("This assest arleady exists")
-	}
-	return Avalbytes, nil
-}*/
