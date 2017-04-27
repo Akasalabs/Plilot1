@@ -266,7 +266,7 @@ func (t *SimpleChaincode) updateContract(stub shim.ChaincodeStubInterface, args 
 	var jsonResp string
 	var err error
 
-	if len(args) != 2 {
+	if len(args) != 3 {
 		return nil, errors.New("Incorrect number of arguments. Expecting 3 args")
 	}
 
@@ -390,7 +390,7 @@ func CreateContractObject(args []string) (SalesContractObject, error) {
 		return myContract, errors.New("CreateAssetbject(): Stage should be set as open")
 	}
 
-	myContract = SalesContractObject{args[0], STATE_OPEN, args[2], args[3], args[4], args[5], args[6], args[7]}
+	myContract = SalesContractObject{args[0], STATE_OPEN, args[2], args[3], args[4], args[5], args[6], time.Now().Format("20060102150405")}
 
 	fmt.Println("CreateContractObject(): Contract Object created: ", myContract.Contractid, myContract.Stage, myContract.Buyer, myContract.Transporter, myContract.Seller, myContract.AssetID, myContract.DocumentID, time.Now().Format("20060102150405"))
 	return myContract, nil
