@@ -24,6 +24,28 @@ type AssetObject struct {
 	Owner    string
 }
 
+//==============================================================================================================================
+//	 Status types - contract lifecycle is broken down into 5 statuses, this is part of the business logic to determine what can
+//					be done to the vehicle at points in it's lifecycle
+//==============================================================================================================================
+const STATE_OPEN = 0
+const STATE_READYFORSHIPMENT = 1
+const STATE_INTRANSIT = 2
+const STATE_SHIPMENT_REACHED = 3
+const STATE_SHIPMENT_DELIVERED = 4
+
+// SalesContractObject struct
+type SalesContractObject struct {
+	Contractid  string
+	Stage       int
+	Buyer       string
+	Transporter string
+	Seller      string
+	AssetID     string
+	DocumentID  string
+	TimeStamp   string // This is the time stamp
+}
+
 func main() {
 	err := shim.Start(new(SimpleChaincode))
 	if err != nil {
@@ -56,6 +78,8 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 		return t.initAssset(stub, args)
 	} else if function == "ownerUpdation" {
 		return t.updateOwner(stub, args)
+	} else if function == "initContract" {
+		return t.initContract(stub, args)
 	}
 	fmt.Println("invoke did not find func: " + function) //error
 
@@ -72,6 +96,9 @@ func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function strin
 	}
 	if function == "keys" {
 		return t.getAllKeys(stub, args)
+	}
+	if function == "readContract" { //read a contract
+		return t.readContract(stub, args)
 	}
 	fmt.Println("query did not find func: " + function) //error
 
@@ -115,8 +142,63 @@ func (t *SimpleChaincode) initAssset(stub shim.ChaincodeStubInterface, args []st
 	return nil, nil
 }
 
+func (t *SimpleChaincode) initContract(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	var err error
+
+	//convert the arguments into an asset Object
+	contractObject, err := CreateContractObject(args[0:])
+	if err != nil {
+		fmt.Println("initContract(): Cannot create contract object ")
+		return nil, errors.New("initAsset(): Cannot create contract object")
+	}
+
+	// check if the contract already exists
+	contractAsBytes, err := stub.GetState(contractObject.Contractid)
+	if err != nil {
+		fmt.Println("initContract() : failed to get contract")
+		return nil, errors.New("Failed to get contract")
+	}
+	if contractAsBytes != nil {
+		fmt.Println("initContract() : contract already exists for ", contractObject.Contractid)
+		jsonResp := "{\"Error\":\"Failed - contract already exists " + contractObject.Contractid + "\"}"
+		return nil, errors.New(jsonResp)
+	}
+
+	buff, err := CTRCTtoJSON(contractObject)
+	if err != nil {
+		errorStr := "initContract() : Failed Cannot create object buffer for write : " + args[1]
+		fmt.Println(errorStr)
+		return nil, errors.New(errorStr)
+	}
+	err = stub.PutState(args[0], buff)
+	if err != nil {
+		fmt.Println("initContract() : write error while inserting record\n")
+		return nil, errors.New("initContract() : write error while inserting record : " + err.Error())
+	}
+	return nil, nil
+}
+
 // read function return value
 func (t *SimpleChaincode) readState(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	var name, jsonResp string
+	var err error
+
+	if len(args) != 1 {
+		return nil, errors.New("Incorrect number of arguments. Expecting name of the var to query")
+	}
+
+	name = args[0]
+	valAsbytes, err := stub.GetState(name)
+	if err != nil {
+		jsonResp = "{\"Error\":\"Failed to get state for " + name + "\"}"
+		return nil, errors.New(jsonResp)
+	}
+
+	return valAsbytes, nil
+}
+
+// read function return value
+func (t *SimpleChaincode) readContract(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 	var name, jsonResp string
 	var err error
 
@@ -239,6 +321,32 @@ func CreateAssetObject(args []string) (AssetObject, error) {
 	return myAsset, nil
 }
 
+// CreateContractObject creates an contract
+func CreateContractObject(args []string) (SalesContractObject, error) {
+	// S001 LHTMO bosch
+	var err error
+	var myContract SalesContractObject
+
+	// Check there are 3 Arguments provided as per the the struct
+	if len(args) != 8 {
+		fmt.Println("CreateContractObject(): Incorrect number of arguments. Expecting 8 ")
+		return myContract, errors.New("CreateContractObject(): Incorrect number of arguments. Expecting 8 ")
+	}
+
+	// Validate Serialno is an integer
+
+	stage, err := strconv.Atoi(args[1])
+	if err != nil {
+		fmt.Println("CreateAssetObject(): Stage should be an integer create failed! ")
+		return myContract, errors.New("CreateAssetbject(): Stage should be an integer create failed. ")
+	}
+
+	myContract = SalesContractObject{args[0], stage, args[2], args[3], args[4], args[5], args[6], args[7]}
+
+	fmt.Println("CreateContractObject(): Contract Object created: ", myContract.Contractid, myContract.Stage, myContract.Buyer, myContract.Transporter, myContract.Seller, myContract.AssetID, myContract.DocumentID, myContract.TimeStamp)
+	return myContract, nil
+}
+
 // ARtoJSON Converts an Asset Object to a JSON String
 func ARtoJSON(ast AssetObject) ([]byte, error) {
 
@@ -248,6 +356,17 @@ func ARtoJSON(ast AssetObject) ([]byte, error) {
 		return nil, err
 	}
 	return ajson, nil
+}
+
+// CTRCTtoJSON Converts an contract Object to a JSON String
+func CTRCTtoJSON(c SalesContractObject) ([]byte, error) {
+
+	cjson, err := json.Marshal(c)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	return cjson, nil
 }
 
 // JSON To args[] - return a map of the JSON string
