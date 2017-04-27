@@ -6,7 +6,7 @@ import (
 	"strconv"
 	//"strconv"
 	"encoding/json"
-	//"time"
+	"time"
 	//"strings"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 )
@@ -80,6 +80,8 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 		return t.updateOwner(stub, args)
 	} else if function == "initContract" {
 		return t.initContract(stub, args)
+	} else if function == "contractUpdation" {
+		return t.updateContract(stub, args)
 	}
 	fmt.Println("invoke did not find func: " + function) //error
 
@@ -259,6 +261,49 @@ func (t *SimpleChaincode) updateOwner(stub shim.ChaincodeStubInterface, args []s
 	return nil, nil
 }
 
+// read function return value
+func (t *SimpleChaincode) updateContract(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	var jsonResp string
+	var err error
+
+	if len(args) != 2 {
+		return nil, errors.New("Incorrect number of arguments. Expecting 3 args")
+	}
+
+	Contractid := args[0]
+	NewDocumentID := args[1]
+	Newstage, err := strconv.Atoi(args[1])
+	if err != nil {
+		fmt.Println("updateContract(): Stage should be an integer create failed! ")
+		return nil, errors.New("updateContract(): Stage should be an integer create failed. ")
+	}
+	contractAsbytes, err := stub.GetState(Contractid)
+	if err != nil {
+		jsonResp = "{\"Error\":\"Failed to get state for " + Contractid + "\"}"
+		return nil, errors.New(jsonResp)
+	}
+	dat, err := JSONtoArgs(contractAsbytes)
+	if err != nil {
+		return nil, errors.New("unable to convert jsonToArgs for" + Contractid)
+	}
+	fmt.Println(dat)
+
+	updatedContract := SalesContractObject{dat["Contractid"].(string), Newstage, dat["Buyer"].(string), dat["Transporter"].(string), dat["Seller"].(string), dat["AssetID"].(string), NewDocumentID, time.Now().Format("20060102150405")}
+
+	buff, err := CTRCTtoJSON(updatedContract)
+	if err != nil {
+		errorStr := "updateContract() : Failed Cannot create object buffer for write : " + args[0]
+		fmt.Println(errorStr)
+		return nil, errors.New(errorStr)
+	}
+	err = stub.PutState(dat["Contractid"].(string), buff)
+	if err != nil {
+		fmt.Println("initAssset() : write error while inserting record\n")
+		return nil, errors.New("initAssset() : write error while inserting record : " + err.Error())
+	}
+	return nil, nil
+}
+
 func (t *SimpleChaincode) getAllKeys(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
 	if len(args) < 2 {
@@ -340,10 +385,14 @@ func CreateContractObject(args []string) (SalesContractObject, error) {
 		fmt.Println("CreateAssetObject(): Stage should be an integer create failed! ")
 		return myContract, errors.New("CreateAssetbject(): Stage should be an integer create failed. ")
 	}
+	if stage != 0 {
+		fmt.Println("CreateAssetObject(): Stage should be set as open ")
+		return myContract, errors.New("CreateAssetbject(): Stage should be set as open")
+	}
 
-	myContract = SalesContractObject{args[0], stage, args[2], args[3], args[4], args[5], args[6], args[7]}
+	myContract = SalesContractObject{args[0], STATE_OPEN, args[2], args[3], args[4], args[5], args[6], args[7]}
 
-	fmt.Println("CreateContractObject(): Contract Object created: ", myContract.Contractid, myContract.Stage, myContract.Buyer, myContract.Transporter, myContract.Seller, myContract.AssetID, myContract.DocumentID, myContract.TimeStamp)
+	fmt.Println("CreateContractObject(): Contract Object created: ", myContract.Contractid, myContract.Stage, myContract.Buyer, myContract.Transporter, myContract.Seller, myContract.AssetID, myContract.DocumentID, time.Now().Format("20060102150405"))
 	return myContract, nil
 }
 
