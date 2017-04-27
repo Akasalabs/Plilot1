@@ -272,7 +272,7 @@ func (t *SimpleChaincode) updateContract(stub shim.ChaincodeStubInterface, args 
 
 	Contractid := args[0]
 	NewDocumentID := args[1]
-	Newstage, err := strconv.Atoi(args[1])
+	Newstage, err := strconv.Atoi(args[2])
 	if err != nil {
 		fmt.Println("updateContract(): Stage should be an integer create failed! ")
 		return nil, errors.New("updateContract(): Stage should be an integer create failed. ")
