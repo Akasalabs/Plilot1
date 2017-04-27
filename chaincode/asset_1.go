@@ -513,6 +513,7 @@ func getContractObject(stub shim.ChaincodeStubInterface, contractID string) (Sal
 		fmt.Println("getcontractObject() : failed to convert to object")
 		return sco, errors.New("Failed to convert to object")
 	}
-	salesContract := SalesContractObject{dat["Contractid"].(string), dat["Stage"].(int), dat["Buyer"].(string), dat["Transporter"].(string), dat["Seller"].(string), dat["AssetID"].(string), dat["DocumentID"].(string), dat["TimeStamp"].(string)}
+	stage := dat["Stage"].(float64)
+	salesContract := SalesContractObject{dat["Contractid"].(string), int(stage), dat["Buyer"].(string), dat["Transporter"].(string), dat["Seller"].(string), dat["AssetID"].(string), dat["DocumentID"].(string), dat["TimeStamp"].(string)}
 	return salesContract, nil
 }
