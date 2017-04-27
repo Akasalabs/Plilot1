@@ -34,6 +34,10 @@ const STATE_INTRANSIT = 2
 const STATE_SHIPMENT_REACHED = 3
 const STATE_SHIPMENT_DELIVERED = 4
 
+const SELLER = "seller"
+const TRANSPORTER = "transporter"
+const BUYER = "lease_company"
+
 // SalesContractObject struct
 type SalesContractObject struct {
 	Contractid  string
@@ -82,6 +86,8 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 		return t.initContract(stub, args)
 	} else if function == "contractUpdation" {
 		return t.updateContract(stub, args)
+	} else if function == "sellerToTransporter" {
+		return t.sellerToTransporter(stub, args)
 	}
 	fmt.Println("invoke did not find func: " + function) //error
 
@@ -430,4 +436,83 @@ func JSONtoArgs(Avalbytes []byte) (map[string]interface{}, error) {
 	return data, nil
 }
 
-//adding comment to commit
+//	 Transfer Functions
+//	 buyer_to_seller
+
+func (t *SimpleChaincode) sellerToTransporter(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+
+	contractid := args[0]
+	caller := args[1]
+	callerAffiliation := args[2]
+	recipientName := args[3]
+	recipientAffiliation := args[4]
+	// check if the contract exists
+	sc, err := getContractObject(stub, contractid)
+	if err != nil {
+		fmt.Println("sellerToTransporter() : failed to get contract object")
+		return nil, errors.New("Failed to get contract object")
+	}
+
+	if sc.Stage == STATE_OPEN &&
+		sc.Seller == caller &&
+		callerAffiliation == SELLER &&
+		recipientAffiliation == TRANSPORTER && sc.Transporter == recipientName {
+		sc.Stage = STATE_READYFORSHIPMENT // and mark it in the state of ready for shipment
+	} else { // Otherwise if there is an error
+		fmt.Printf("sellerToTransporter: Permission Denied")
+		return nil, errors.New(fmt.Sprintf("Permission Denied. sellerToTransporter"))
+
+	}
+
+	status, err := t.save_changes(stub, sc) // Write new state
+	if err != nil {
+		fmt.Printf("sellerToTransporter: Error saving changes: %s", err)
+		return nil, errors.New("Error saving changes")
+	}
+	fmt.Println("sellerToTransporter: Transfer complete : %s", status)
+	return nil, nil // We are Done
+
+}
+
+// save_changes - Writes to the ledger the Contract struct passed in a JSON format. Uses the shim file's
+//				  method 'PutState'.
+func (t *SimpleChaincode) save_changes(stub shim.ChaincodeStubInterface, sc SalesContractObject) (bool, error) {
+
+	bytes, err := json.Marshal(sc)
+
+	if err != nil {
+		fmt.Printf("SAVE_CHANGES: Error converting contract : %s", err)
+		return false, errors.New("Error converting contract ")
+	}
+
+	err = stub.PutState(sc.Contractid, bytes)
+
+	if err != nil {
+		fmt.Printf("SAVE_CHANGES: Error storing contract : %s", err)
+		return false, errors.New("Error storing contract")
+	}
+	return true, nil
+}
+
+func getContractObject(stub shim.ChaincodeStubInterface, contractID string) (SalesContractObject, error) {
+
+	// check that the contract already exists
+	var sco SalesContractObject
+	contractAsBytes, err := stub.GetState(contractID)
+	if err != nil {
+		fmt.Println("getcontractObject() : failed to get contract")
+		return sco, errors.New("Failed to get contract")
+	}
+	if contractAsBytes == nil {
+		fmt.Println("getcontractObject() : erreneous contact object for", contractID)
+		jsonResp := "{\"Error\":\"Failed - erreneous contact object for" + contractID + "\"}"
+		return sco, errors.New(jsonResp)
+	}
+	dat, err := JSONtoArgs(contractAsBytes)
+	if err != nil {
+		fmt.Println("getcontractObject() : failed to convert to object")
+		return sco, errors.New("Failed to convert to object")
+	}
+	salesContract := SalesContractObject{dat["Contractid"].(string), dat["Stage"].(int), dat["Buyer"].(string), dat["Transporter"].(string), dat["Seller"].(string), dat["AssetID"].(string), dat["DocumentID"].(string), dat["TimeStamp"].(string)}
+	return salesContract, nil
+}
