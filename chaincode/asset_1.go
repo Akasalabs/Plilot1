@@ -86,8 +86,14 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 		return t.initContract(stub, args)
 	} else if function == "contractUpdation" {
 		return t.updateContract(stub, args)
-	} else if function == "sellerToTransporter" {
-		return t.sellerToTransporter(stub, args)
+	} else if function == "readyForShipment" {
+		return t.toReadyForShipment(stub, args)
+	} else if function == "inTransit" {
+		return t.toInTransit(stub, args)
+	} else if function == "shipmentReached" {
+		return t.toShipmentReached(stub, args)
+	} else if function == "shipmentDelivered" {
+		return t.toShipmentDelivered(stub, args)
 	}
 	fmt.Println("invoke did not find func: " + function) //error
 
@@ -437,15 +443,14 @@ func JSONtoArgs(Avalbytes []byte) (map[string]interface{}, error) {
 }
 
 //	 Transfer Functions
-//	 buyer_to_seller
+//	 seller to transporter
 
-func (t *SimpleChaincode) sellerToTransporter(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+func (t *SimpleChaincode) toReadyForShipment(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
 	contractid := args[0]
 	caller := args[1]
 	callerAffiliation := args[2]
-	recipientName := args[3]
-	recipientAffiliation := args[4]
+	newDocumentID := args[3]
 	// check if the contract exists
 	sc, err := getContractObject(stub, contractid)
 	if err != nil {
@@ -455,9 +460,9 @@ func (t *SimpleChaincode) sellerToTransporter(stub shim.ChaincodeStubInterface, 
 
 	if sc.Stage == STATE_OPEN &&
 		sc.Seller == caller &&
-		callerAffiliation == SELLER &&
-		recipientAffiliation == TRANSPORTER && sc.Transporter == recipientName {
+		callerAffiliation == SELLER {
 		sc.Stage = STATE_READYFORSHIPMENT // and mark it in the state of ready for shipment
+		sc.DocumentID = newDocumentID     //attach the new document
 	} else { // Otherwise if there is an error
 		fmt.Printf("sellerToTransporter: Permission Denied")
 		return nil, errors.New(fmt.Sprintf("Permission Denied. sellerToTransporter"))
@@ -470,6 +475,108 @@ func (t *SimpleChaincode) sellerToTransporter(stub shim.ChaincodeStubInterface, 
 		return nil, errors.New("Error saving changes")
 	}
 	fmt.Println("sellerToTransporter: Transfer complete : %s", status)
+	return nil, nil // We are Done
+
+}
+
+//	 transporter
+
+func (t *SimpleChaincode) toInTransit(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+
+	contractid := args[0]
+	caller := args[1]
+	callerAffiliation := args[2]
+	// check if the contract exists
+	sc, err := getContractObject(stub, contractid)
+	if err != nil {
+		fmt.Println("toInTransit() : failed to get contract object")
+		return nil, errors.New("Failed to get contract object")
+	}
+
+	if sc.Stage == STATE_READYFORSHIPMENT &&
+		sc.Transporter == caller &&
+		callerAffiliation == TRANSPORTER {
+		sc.Stage = STATE_INTRANSIT // and mark it in the state of ready for shipment
+	} else { // Otherwise if there is an error
+		fmt.Printf("toInTransit: Permission Denied")
+		return nil, errors.New(fmt.Sprintf("Permission Denied. toInTransit"))
+
+	}
+
+	status, err := t.save_changes(stub, sc) // Write new state
+	if err != nil {
+		fmt.Printf("toInTransit: Error saving changes: %s", err)
+		return nil, errors.New("Error saving changes")
+	}
+	fmt.Println("toInTransit: Transfer complete : %s", status)
+	return nil, nil // We are Done
+
+}
+
+//	 shipment reached
+
+func (t *SimpleChaincode) toShipmentReached(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+
+	contractid := args[0]
+	caller := args[1]
+	callerAffiliation := args[2]
+	// check if the contract exists
+	sc, err := getContractObject(stub, contractid)
+	if err != nil {
+		fmt.Println("toShipmentReached() : failed to get contract object")
+		return nil, errors.New("Failed to get contract object")
+	}
+
+	if sc.Stage == STATE_INTRANSIT &&
+		sc.Transporter == caller &&
+		callerAffiliation == TRANSPORTER {
+		sc.Stage = STATE_SHIPMENT_REACHED // and mark it in the state of ready for shipment
+	} else { // Otherwise if there is an error
+		fmt.Printf("toShipmentReached() : Permission Denied")
+		return nil, errors.New(fmt.Sprintf("Permission Denied. toInTransit"))
+
+	}
+
+	status, err := t.save_changes(stub, sc) // Write new state
+	if err != nil {
+		fmt.Printf("toShipmentReached() : Error saving changes: %s", err)
+		return nil, errors.New("Error saving changes")
+	}
+	fmt.Println("toShipmentReached() : Transfer complete : %s", status)
+	return nil, nil // We are Done
+
+}
+
+//	 shipment reached
+
+func (t *SimpleChaincode) toShipmentDelivered(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+
+	contractid := args[0]
+	caller := args[1]
+	callerAffiliation := args[2]
+	// check if the contract exists
+	sc, err := getContractObject(stub, contractid)
+	if err != nil {
+		fmt.Println("toShipmentDelivered() : failed to get contract object")
+		return nil, errors.New("Failed to get contract object")
+	}
+
+	if sc.Stage == STATE_SHIPMENT_REACHED &&
+		sc.Transporter == caller &&
+		callerAffiliation == BUYER {
+		sc.Stage = STATE_SHIPMENT_DELIVERED // and mark it in the state of ready for shipment
+	} else { // Otherwise if there is an error
+		fmt.Printf("toShipmentDelivered() : Permission Denied")
+		return nil, errors.New(fmt.Sprintf("Permission Denied. toInTransit"))
+
+	}
+
+	status, err := t.save_changes(stub, sc) // Write new state
+	if err != nil {
+		fmt.Printf("toShipmentDelivered() : Error saving changes: %s", err)
+		return nil, errors.New("Error saving changes")
+	}
+	fmt.Println("toShipmentDelivered() : Transfer complete : %s", status)
 	return nil, nil // We are Done
 
 }
