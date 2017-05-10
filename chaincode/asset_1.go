@@ -22,6 +22,7 @@ type AssetObject struct {
 	Serialno string
 	Partno   string
 	Owner    string
+	state    string
 }
 
 //==============================================================================================================================
@@ -50,6 +51,16 @@ type SalesContractObject struct {
 	TimeStamp   string // This is the time stamp
 }
 
+var tables = []string{"AssetTable", "TransactionHistory"}
+
+func GetNumberOfKeys(tname string) int {
+	TableMap := map[string]int{
+		"AssetTable":         3,
+		"TransactionHistory": 3,
+	}
+	return TableMap[tname]
+}
+
 func main() {
 	err := shim.Start(new(SimpleChaincode))
 	if err != nil {
@@ -57,18 +68,64 @@ func main() {
 	}
 }
 
-// Init initializes the chain
+// Init initializes the chain and two tables - one for asset and other for transaction history
 func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
 
+	fmt.Println("Application Init")
 	var err error
-	var empty []string
-	jsonAsBytes, _ := json.Marshal(empty)
-	err = stub.PutState(assestIndexstr, jsonAsBytes)
+
+	for _, val := range tables {
+		err = stub.DeleteTable(val)
+		if err != nil {
+			return nil, fmt.Errorf("Init(): DeleteTable of %s  Failed ", val)
+		}
+		err = InitLedger(stub, val)
+		if err != nil {
+			return nil, fmt.Errorf("Init(): InitLedger of %s  Failed ", val)
+		}
+	}
+	// Update the ledger with the Application version
+	err = stub.PutState("version", []byte(strconv.Itoa(23)))
 	if err != nil {
 		return nil, err
 	}
 
-	return nil, nil
+	fmt.Println("Init() Initialization Complete  : ", args)
+	return []byte("Init(): Initialization Complete"), nil
+}
+
+func InitLedger(stub shim.ChaincodeStubInterface, tableName string) error {
+
+	// Generic Table Creation Function - requires Table Name and Table Key Entry
+	// Create Table - Get number of Keys the tables supports
+	// This version assumes all Keys are String and the Data is Bytes
+
+	nKeys := GetNumberOfKeys(tableName)
+	if nKeys < 1 {
+		fmt.Println("Atleast 1 Key must be provided \n")
+		fmt.Println("Auction_Application: Failed creating Table ", tableName)
+		return errors.New("Auction_Application: Failed creating Table " + tableName)
+	}
+
+	var columnDefsForTbl []*shim.ColumnDefinition
+
+	for i := 0; i < nKeys; i++ {
+		columnDef := shim.ColumnDefinition{Name: "keyName" + strconv.Itoa(i), Type: shim.ColumnDefinition_STRING, Key: true}
+		columnDefsForTbl = append(columnDefsForTbl, &columnDef)
+	}
+
+	columnLastTblDef := shim.ColumnDefinition{Name: "Details", Type: shim.ColumnDefinition_BYTES, Key: false}
+	columnDefsForTbl = append(columnDefsForTbl, &columnLastTblDef)
+
+	// Create the Table (Nil is returned if the Table exists or if the table is created successfully
+	err := stub.CreateTable(tableName, columnDefsForTbl)
+
+	if err != nil {
+		fmt.Println("Auction_Application: Failed creating Table ", tableName)
+		return errors.New("Auction_Application: Failed creating Table " + tableName)
+	}
+
+	return err
 }
 
 // Invoke is our entry point to invoke a chaincode function
@@ -78,8 +135,8 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 	// Handle different functions
 	if function == "init" {
 		return t.Init(stub, "init", args)
-	} else if function == "initAssset" {
-		return t.initAssset(stub, args)
+	} else if function == "invokeAsset" {
+		return t.invokeAsset(stub, args)
 	} else if function == "ownerUpdation" {
 		return t.updateOwner(stub, args)
 	} else if function == "initContract" {
@@ -107,53 +164,46 @@ func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function strin
 	// Handle different functions
 	if function == "readState" { //read a variable
 		return t.readState(stub, args)
-	}
-	if function == "keys" {
+	} else if function == "keys" {
 		return t.getAllKeys(stub, args)
-	}
-	if function == "readContract" { //read a contract
+	} else if function == "readContract" { //read a contract
+		return t.readContract(stub, args)
+	} else if function == "readContract" { //read a contract
 		return t.readContract(stub, args)
 	}
+
 	fmt.Println("query did not find func: " + function) //error
 
 	return nil, errors.New("Received unknown function query " + function)
 }
 
-func (t *SimpleChaincode) initAssset(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
-	var err error
+// invokes an asset into the table
+func (t *SimpleChaincode) invokeAsset(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
-	//convert the arguments into an asset Object
-	AssetObject, err := CreateAssetObject(args[0:])
+	assetObject, err := CreateAssetObject(args[0:])
 	if err != nil {
-		fmt.Println("initAsset(): Cannot create asset object ")
-		return nil, errors.New("initAsset(): Cannot create asset object")
+		fmt.Println("invokeAsset(): Cannot create item object \n")
+		return nil, err
 	}
 
-	// check if the asset already exists
-	assestAsBytes, err := stub.GetState(AssetObject.Serialno)
-	if err != nil {
-		fmt.Println("initAssset() : failed to get asset")
-		return nil, errors.New("Failed to get asset")
-	}
-	if assestAsBytes != nil {
-		fmt.Println("initAssset() : Asset already exists ", AssetObject.Serialno)
-		jsonResp := "{\"Error\":\"Failed - Asset already exists " + AssetObject.Serialno + "\"}"
-		return nil, errors.New(jsonResp)
-	}
+	/*// Check if the Owner ID specified is registered and valid */
+	// Convert Item Object to JSON
 
-	buff, err := ARtoJSON(AssetObject)
+	buff, err := ARtoJSON(assetObject)
 	if err != nil {
-		errorStr := "initAssset() : Failed Cannot create object buffer for write : " + args[1]
-		fmt.Println(errorStr)
-		return nil, errors.New(errorStr)
+		fmt.Println("invokeAsset() : Failed Cannot create object buffer for write : ", args[1])
+		return nil, errors.New("invokeAsset(): Failed Cannot create object buffer for write : " + args[1])
 	} else {
-		err = stub.PutState(args[0], buff)
+		// Update the ledger with the Buffer Data
+		// err = stub.PutState(args[0], buff)
+		keys := []string{"asset", assetObject.Serialno, assetObject.state}
+		err = UpdateLedger(stub, "AssetTable", keys, buff)
 		if err != nil {
-			fmt.Println("initAssset() : write error while inserting record\n")
-			return nil, errors.New("initAssset() : write error while inserting record : " + err.Error())
+			fmt.Println("PostItem() : write error while inserting record\n")
+			return buff, err
 		}
+		return nil, nil
 	}
-	return nil, nil
 }
 
 func (t *SimpleChaincode) initContract(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
@@ -257,7 +307,7 @@ func (t *SimpleChaincode) updateOwner(stub shim.ChaincodeStubInterface, args []s
 	partFromLeger := dat["Partno"].(string)
 	fmt.Println(partFromLeger)
 
-	myAsset := AssetObject{serialFromLedger, partFromLeger, newOwner}
+	myAsset := AssetObject{serialFromLedger, partFromLeger, newOwner, args[3]}
 
 	buff, err := ARtoJSON(myAsset)
 	if err != nil {
@@ -355,24 +405,24 @@ func (t *SimpleChaincode) getAllKeys(stub shim.ChaincodeStubInterface, args []st
 // CreateAssetObject creates an asset
 func CreateAssetObject(args []string) (AssetObject, error) {
 	// S001 LHTMO bosch
-	var err error
+	// var err error
 	var myAsset AssetObject
 
-	// Check there are 3 Arguments provided as per the the struct
-	if len(args) != 3 {
+	// Check there are 4 Arguments provided as per the the struct
+	if len(args) != 4 {
 		fmt.Println("CreateAssetObject(): Incorrect number of arguments. Expecting 3 ")
 		return myAsset, errors.New("CreateAssetObject(): Incorrect number of arguments. Expecting 3 ")
 	}
 
 	// Validate Serialno is an integer
 
-	_, err = strconv.Atoi(args[0])
+	/*_, err = strconv.Atoi(args[0])
 	if err != nil {
 		fmt.Println("CreateAssetObject(): SerialNo should be an integer create failed! ")
 		return myAsset, errors.New("CreateAssetbject(): SerialNo should be an integer create failed. ")
-	}
+	}*/
 
-	myAsset = AssetObject{args[0], args[1], args[2]}
+	myAsset = AssetObject{args[0], args[1], args[2], args[3]}
 
 	fmt.Println("CreateAssetObject(): Asset Object created: ", myAsset.Serialno, myAsset.Partno, myAsset.Owner)
 	return myAsset, nil
@@ -417,6 +467,17 @@ func ARtoJSON(ast AssetObject) ([]byte, error) {
 		return nil, err
 	}
 	return ajson, nil
+}
+
+func JSONtoAR(data []byte) (AssetObject, error) {
+
+	ar := AssetObject{}
+	err := json.Unmarshal([]byte(data), &ar)
+	if err != nil {
+		fmt.Println("Unmarshal failed : ", err)
+	}
+
+	return ar, err
 }
 
 // CTRCTtoJSON Converts an contract Object to a JSON String
@@ -623,4 +684,102 @@ func getContractObject(stub shim.ChaincodeStubInterface, contractID string) (Sal
 	stage := dat["Stage"].(float64)
 	salesContract := SalesContractObject{dat["Contractid"].(string), int(stage), dat["Buyer"].(string), dat["Transporter"].(string), dat["Seller"].(string), dat["AssetID"].(string), dat["DocumentID"].(string), dat["TimeStamp"].(string)}
 	return salesContract, nil
+}
+
+func UpdateLedger(stub shim.ChaincodeStubInterface, tableName string, keys []string, args []byte) error {
+
+	nKeys := GetNumberOfKeys(tableName)
+	if nKeys < 1 {
+		fmt.Println("Atleast 1 Key must be provided \n")
+	}
+
+	var columns []*shim.Column
+
+	for i := 0; i < nKeys; i++ {
+		col := shim.Column{Value: &shim.Column_String_{String_: keys[i]}}
+		columns = append(columns, &col)
+	}
+
+	lastCol := shim.Column{Value: &shim.Column_Bytes{Bytes: []byte(args)}}
+	columns = append(columns, &lastCol)
+
+	row := shim.Row{columns}
+	ok, err := stub.InsertRow(tableName, row)
+	if err != nil {
+		return fmt.Errorf("UpdateLedger: InsertRow into "+tableName+" Table operation failed. %s", err)
+	}
+	if !ok {
+		return errors.New("UpdateLedger: InsertRow into " + tableName + " Table failed. Row with given key " + keys[0] + " already exists")
+	}
+
+	fmt.Println("UpdateLedger: InsertRow into ", tableName, " Table operation Successful. ")
+	return nil
+}
+
+func (t *SimpleChaincode) GetAssets(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+
+	rows, err := GetList(stub, "AssetTable", args)
+	if err != nil {
+		return nil, fmt.Errorf("GetAssets() operation failed. Error marshaling JSON: %s", err)
+	}
+
+	nCol := GetNumberOfKeys("AssetTable")
+
+	tlist := make([]AssetObject, len(rows))
+	for i := 0; i < len(rows); i++ {
+		ts := rows[i].Columns[nCol].GetBytes()
+		ar, err := JSONtoAR(ts)
+		if err != nil {
+			fmt.Println("GetAssets() Failed : Ummarshall error")
+			return nil, fmt.Errorf("GetAssets() operation failed. %s", err)
+		}
+		tlist[i] = ar
+	}
+
+	jsonRows, _ := json.Marshal(tlist)
+
+	//fmt.Println("List of Open Auctions : ", jsonRows)
+	return jsonRows, nil
+
+}
+
+func GetList(stub shim.ChaincodeStubInterface, tableName string, args []string) ([]shim.Row, error) {
+	var columns []shim.Column
+
+	nKeys := GetNumberOfKeys(tableName)
+	nCol := len(args)
+	if nCol < 1 {
+		fmt.Println("Atleast 1 Key must be provided \n")
+		return nil, errors.New("GetList failed. Must include at least key values")
+	}
+
+	for i := 0; i < nCol; i++ {
+		colNext := shim.Column{Value: &shim.Column_String_{String_: args[i]}}
+		columns = append(columns, colNext)
+	}
+
+	rowChannel, err := stub.GetRows(tableName, columns)
+	if err != nil {
+		return nil, fmt.Errorf("GetList operation failed. %s", err)
+	}
+	var rows []shim.Row
+	for {
+		select {
+		case row, ok := <-rowChannel:
+			if !ok {
+				rowChannel = nil
+			} else {
+				rows = append(rows, row)
+				//If required enable for debugging
+				//fmt.Println(row)
+			}
+		}
+		if rowChannel == nil {
+			break
+		}
+	}
+
+	fmt.Println("Number of Keys retrieved : ", nKeys)
+	fmt.Println("Number of rows retrieved : ", len(rows))
+	return rows, nil
 }
