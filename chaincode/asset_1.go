@@ -170,6 +170,8 @@ func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function strin
 		return t.readContract(stub, args)
 	} else if function == "readContract" { //read a contract
 		return t.readContract(stub, args)
+	} else if function == "getOpenAssets" { //read a contract
+		return t.GetAssets(stub, args)
 	}
 
 	fmt.Println("query did not find func: " + function) //error
