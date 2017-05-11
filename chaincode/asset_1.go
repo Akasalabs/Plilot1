@@ -56,7 +56,7 @@ var tables = []string{"AssetTable", "TransactionHistory"}
 func GetNumberOfKeys(tname string) int {
 	TableMap := map[string]int{
 		"AssetTable":         3,
-		"TransactionHistory": 3,
+		"TransactionHistory": 2,
 	}
 	return TableMap[tname]
 }
@@ -171,7 +171,7 @@ func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function strin
 	} else if function == "readContract" { //read a contract
 		return t.readContract(stub, args)
 	} else if function == "getOpenAssets" { //read a contract
-		return t.GetAssets(stub, args)
+		return t.getAssets(stub, args)
 	}
 
 	fmt.Println("query did not find func: " + function) //error
@@ -198,7 +198,7 @@ func (t *SimpleChaincode) invokeAsset(stub shim.ChaincodeStubInterface, args []s
 	} else {
 		// Update the ledger with the Buffer Data
 		// err = stub.PutState(args[0], buff)
-		keys := []string{"asset", assetObject.Serialno, assetObject.state}
+		keys := []string{"asset", assetObject.state, assetObject.Serialno}
 		err = UpdateLedger(stub, "AssetTable", keys, buff)
 		if err != nil {
 			fmt.Println("PostItem() : write error while inserting record\n")
@@ -241,6 +241,15 @@ func (t *SimpleChaincode) initContract(stub shim.ChaincodeStubInterface, args []
 		fmt.Println("initContract() : write error while inserting record\n")
 		return nil, errors.New("initContract() : write error while inserting record : " + err.Error())
 	}
+
+	// make an entry into transaction history table
+	keys := []string{contractObject.Contractid, strconv.Itoa(contractObject.Stage)}
+	err = UpdateLedger(stub, "TransactionHistory", keys, buff)
+	if err != nil {
+		fmt.Println("initContract() : write error while inserting record\n")
+		return buff, err
+	}
+
 	return nil, nil
 }
 
@@ -718,7 +727,7 @@ func UpdateLedger(stub shim.ChaincodeStubInterface, tableName string, keys []str
 	return nil
 }
 
-func (t *SimpleChaincode) GetAssets(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+func (t *SimpleChaincode) getAssets(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
 	rows, err := GetList(stub, "AssetTable", args)
 	if err != nil {
