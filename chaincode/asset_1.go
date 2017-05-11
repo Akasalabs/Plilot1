@@ -56,7 +56,7 @@ var tables = []string{"AssetTable", "TransactionHistory"}
 func GetNumberOfKeys(tname string) int {
 	TableMap := map[string]int{
 		"AssetTable":         2,
-		"TransactionHistory": 2,
+		"TransactionHistory": 3,
 	}
 	return TableMap[tname]
 }
@@ -174,6 +174,8 @@ func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function strin
 		return t.getAssets(stub, args)
 	} else if function == "getAssets" {
 		return t.GetAsset(stub, args)
+	} else if function == "getContractHistory" {
+		return t.getContractHistory(stub, args)
 	}
 
 	fmt.Println("query did not find func: " + function) //error
@@ -246,7 +248,7 @@ func (t *SimpleChaincode) initContract(stub shim.ChaincodeStubInterface, args []
 	}
 
 	// make an entry into transaction history table
-	keys := []string{contractObject.Contractid, strconv.Itoa(contractObject.Stage)}
+	keys := []string{contractObject.Contractid, strconv.Itoa(contractObject.Stage), time.Now().Format("2006-01-02 15:04:05")}
 	err = UpdateLedger(stub, "TransactionHistory", keys, buff)
 	if err != nil {
 		fmt.Println("initContract() : write error while inserting record\n")
@@ -376,6 +378,14 @@ func (t *SimpleChaincode) updateContract(stub shim.ChaincodeStubInterface, args 
 	if err != nil {
 		fmt.Println("initAssset() : write error while inserting record\n")
 		return nil, errors.New("initAssset() : write error while inserting record : " + err.Error())
+	}
+
+	// make an entry into transaction history table
+	keys := []string{updatedContract.Contractid, strconv.Itoa(updatedContract.Stage), time.Now().Format("2006-01-02 15:04:05")}
+	err = UpdateLedger(stub, "TransactionHistory", keys, buff)
+	if err != nil {
+		fmt.Println("initContract() : write error while inserting record\n")
+		return buff, err
 	}
 	return nil, nil
 }
@@ -742,6 +752,33 @@ func (t *SimpleChaincode) getAssets(stub shim.ChaincodeStubInterface, args []str
 	}
 
 	nCol := GetNumberOfKeys("AssetTable")
+
+	tlist := make([]AssetObject, len(rows))
+	for i := 0; i < len(rows); i++ {
+		ts := rows[i].Columns[nCol].GetBytes()
+		ar, err := JSONtoAR(ts)
+		if err != nil {
+			fmt.Println("GetAssets() Failed : Ummarshall error")
+			return nil, fmt.Errorf("GetAssets() operation failed. %s", err)
+		}
+		tlist[i] = ar
+	}
+
+	jsonRows, _ := json.Marshal(tlist)
+
+	//fmt.Println("List of Open Auctions : ", jsonRows)
+	return jsonRows, nil
+
+}
+
+func (t *SimpleChaincode) getContractHistory(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+
+	rows, err := GetList(stub, "TransactionHistory", args)
+	if err != nil {
+		return nil, fmt.Errorf("GetAssets() operation failed. Error marshaling JSON: %s", err)
+	}
+
+	nCol := GetNumberOfKeys("TransactionHistory")
 
 	tlist := make([]AssetObject, len(rows))
 	for i := 0; i < len(rows); i++ {
