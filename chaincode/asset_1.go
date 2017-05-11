@@ -192,8 +192,9 @@ func (t *SimpleChaincode) invokeAsset(stub shim.ChaincodeStubInterface, args []s
 
 	/*// Check if the Owner ID specified is registered and valid */
 	// Convert Item Object to JSON
-
+	fmt.Println("assetObject is", assetObject)
 	buff, err := ARtoJSON(assetObject)
+	fmt.Println("buff is ", buff)
 	if err != nil {
 		fmt.Println("invokeAsset() : Failed Cannot create object buffer for write : ", args[1])
 		return nil, errors.New("invokeAsset(): Failed Cannot create object buffer for write : " + args[1])
