@@ -55,7 +55,7 @@ var tables = []string{"AssetTable", "TransactionHistory"}
 
 func GetNumberOfKeys(tname string) int {
 	TableMap := map[string]int{
-		"AssetTable":         4,
+		"AssetTable":         2,
 		"TransactionHistory": 2,
 	}
 	return TableMap[tname]
@@ -200,7 +200,7 @@ func (t *SimpleChaincode) invokeAsset(stub shim.ChaincodeStubInterface, args []s
 	} else {
 		// Update the ledger with the Buffer Data
 		// err = stub.PutState(args[0], buff)
-		keys := []string{"asset", assetObject.state, assetObject.Owner, assetObject.Serialno}
+		keys := []string{"asset", assetObject.Owner}
 		err = UpdateLedger(stub, "AssetTable", keys, buff)
 		if err != nil {
 			fmt.Println("PostItem() : write error while inserting record\n")
