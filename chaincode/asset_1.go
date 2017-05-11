@@ -22,7 +22,7 @@ type AssetObject struct {
 	Serialno string
 	Partno   string
 	Owner    string
-	state    string
+	State    string
 }
 
 //==============================================================================================================================
@@ -438,7 +438,7 @@ func CreateAssetObject(args []string) (AssetObject, error) {
 
 	myAsset = AssetObject{args[0], args[1], args[2], args[3]}
 
-	fmt.Println("CreateAssetObject(): Asset Object created: ", myAsset.Serialno, myAsset.Partno, myAsset.Owner, myAsset.state)
+	fmt.Println("CreateAssetObject(): Asset Object created: ", myAsset.Serialno, myAsset.Partno, myAsset.Owner, myAsset.State)
 	return myAsset, nil
 }
 
@@ -702,6 +702,9 @@ func getContractObject(stub shim.ChaincodeStubInterface, contractID string) (Sal
 
 func UpdateLedger(stub shim.ChaincodeStubInterface, tableName string, keys []string, args []byte) error {
 
+	fmt.Println("buffer is ", args)
+	fmt.Println("keys is ", keys)
+
 	nKeys := GetNumberOfKeys(tableName)
 	if nKeys < 1 {
 		fmt.Println("Atleast 1 Key must be provided \n")
@@ -718,6 +721,7 @@ func UpdateLedger(stub shim.ChaincodeStubInterface, tableName string, keys []str
 	columns = append(columns, &lastCol)
 
 	row := shim.Row{columns}
+	fmt.Println("appending row is", row)
 	ok, err := stub.InsertRow(tableName, row)
 	if err != nil {
 		return fmt.Errorf("UpdateLedger: InsertRow into "+tableName+" Table operation failed. %s", err)
