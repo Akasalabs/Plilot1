@@ -55,7 +55,7 @@ var tables = []string{"AssetTable", "TransactionHistory"}
 
 func GetNumberOfKeys(tname string) int {
 	TableMap := map[string]int{
-		"AssetTable":         3,
+		"AssetTable":         4,
 		"TransactionHistory": 2,
 	}
 	return TableMap[tname]
@@ -172,6 +172,8 @@ func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function strin
 		return t.readContract(stub, args)
 	} else if function == "getOpenAssets" { //read a contract
 		return t.getAssets(stub, args)
+	} else if function == "getAssets" {
+		return t.GetAsset(stub, args)
 	}
 
 	fmt.Println("query did not find func: " + function) //error
@@ -198,7 +200,7 @@ func (t *SimpleChaincode) invokeAsset(stub shim.ChaincodeStubInterface, args []s
 	} else {
 		// Update the ledger with the Buffer Data
 		// err = stub.PutState(args[0], buff)
-		keys := []string{"asset", assetObject.state, assetObject.Serialno}
+		keys := []string{"asset", assetObject.state, assetObject.Serialno, assetObject.Owner}
 		err = UpdateLedger(stub, "AssetTable", keys, buff)
 		if err != nil {
 			fmt.Println("PostItem() : write error while inserting record\n")
@@ -421,8 +423,8 @@ func CreateAssetObject(args []string) (AssetObject, error) {
 
 	// Check there are 4 Arguments provided as per the the struct
 	if len(args) != 4 {
-		fmt.Println("CreateAssetObject(): Incorrect number of arguments. Expecting 3 ")
-		return myAsset, errors.New("CreateAssetObject(): Incorrect number of arguments. Expecting 3 ")
+		fmt.Println("CreateAssetObject(): Incorrect number of arguments. Expecting 4 ")
+		return myAsset, errors.New("CreateAssetObject(): Incorrect number of arguments. Expecting 4 ")
 	}
 
 	// Validate Serialno is an integer
@@ -793,4 +795,58 @@ func GetList(stub shim.ChaincodeStubInterface, tableName string, args []string) 
 	fmt.Println("Number of Keys retrieved : ", nKeys)
 	fmt.Println("Number of rows retrieved : ", len(rows))
 	return rows, nil
+}
+
+func (t *SimpleChaincode) GetAsset(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+
+	var err error
+
+	// Get the Objects and Display it
+	Avalbytes, err := QueryLedger(stub, "AssetTable", args)
+
+	if err != nil {
+		fmt.Println("GetItem() : Failed to Query Object ")
+		jsonResp := "{\"Error\":\"Failed to get  Object Data for " + args[0] + "\"}"
+		return nil, errors.New(jsonResp)
+	}
+
+	if Avalbytes == nil {
+		fmt.Println("GetItem() : Incomplete Query Object ")
+		jsonResp := "{\"Error\":\"Incomplete information about the key for " + args[0] + "\"}"
+		return nil, errors.New(jsonResp)
+	}
+
+	fmt.Println("GetItem() : Response : Successfull ")
+	return Avalbytes, nil
+}
+
+func QueryLedger(stub shim.ChaincodeStubInterface, tableName string, args []string) ([]byte, error) {
+
+	var columns []shim.Column
+	nCol := GetNumberOfKeys(tableName)
+	for i := 0; i < nCol; i++ {
+		colNext := shim.Column{Value: &shim.Column_String_{String_: args[i]}}
+		columns = append(columns, colNext)
+	}
+
+	row, err := stub.GetRow(tableName, columns)
+	if err != nil {
+		return nil, errors.New("unable to query row!")
+	}
+	fmt.Println("Length or number of rows retrieved ", len(row.Columns))
+
+	if len(row.Columns) == 0 {
+		jsonResp := "{\"Error\":\"Failed retrieving data " + args[0] + ". \"}"
+		fmt.Println("Error retrieving data record for Key = ", args[0], "Error : ", jsonResp)
+		return nil, errors.New(jsonResp)
+	}
+
+	//fmt.Println("User Query Response:", row)
+	//jsonResp := "{\"Owner\":\"" + string(row.Columns[nCol].GetBytes()) + "\"}"
+	//fmt.Println("User Query Response:%s\n", jsonResp)
+	Avalbytes := row.Columns[nCol].GetBytes()
+
+	// Perform Any additional processing of data
+	fmt.Println("QueryLedger() : Successful - Proceeding to ProcessRequestType ")
+	return Avalbytes, nil
 }
