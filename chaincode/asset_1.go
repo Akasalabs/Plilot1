@@ -437,7 +437,7 @@ func CreateAssetObject(args []string) (AssetObject, error) {
 
 	myAsset = AssetObject{args[0], args[1], args[2], args[3]}
 
-	fmt.Println("CreateAssetObject(): Asset Object created: ", myAsset.Serialno, myAsset.Partno, myAsset.Owner)
+	fmt.Println("CreateAssetObject(): Asset Object created: ", myAsset.Serialno, myAsset.Partno, myAsset.Owner, myasset.state)
 	return myAsset, nil
 }
 
