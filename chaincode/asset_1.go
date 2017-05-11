@@ -842,7 +842,7 @@ func QueryLedger(stub shim.ChaincodeStubInterface, tableName string, args []stri
 		return nil, errors.New(jsonResp)
 	}
 
-	//fmt.Println("User Query Response:", row)
+	fmt.Println("User Query Response:", row)
 	//jsonResp := "{\"Owner\":\"" + string(row.Columns[nCol].GetBytes()) + "\"}"
 	//fmt.Println("User Query Response:%s\n", jsonResp)
 	Avalbytes := row.Columns[nCol].GetBytes()
