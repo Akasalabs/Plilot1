@@ -200,7 +200,7 @@ func (t *SimpleChaincode) invokeAsset(stub shim.ChaincodeStubInterface, args []s
 	} else {
 		// Update the ledger with the Buffer Data
 		// err = stub.PutState(args[0], buff)
-		keys := []string{"asset", assetObject.state, assetObject.Serialno, assetObject.Owner}
+		keys := []string{"asset", assetObject.state, assetObject.Owner, assetObject.Serialno}
 		err = UpdateLedger(stub, "AssetTable", keys, buff)
 		if err != nil {
 			fmt.Println("PostItem() : write error while inserting record\n")
