@@ -248,7 +248,9 @@ func (t *SimpleChaincode) initContract(stub shim.ChaincodeStubInterface, args []
 	}
 
 	// make an entry into transaction history table
+
 	keys := []string{contractObject.Contractid, strconv.Itoa(contractObject.Stage), time.Now().Format("2006-01-02 15:04:05")}
+	fmt.Println("keys are", keys)
 	err = UpdateLedger(stub, "TransactionHistory", keys, buff)
 	if err != nil {
 		fmt.Println("initContract() : write error while inserting record\n")
