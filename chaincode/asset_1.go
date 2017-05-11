@@ -504,6 +504,17 @@ func JSONtoAR(data []byte) (AssetObject, error) {
 	return ar, err
 }
 
+func JSONtoCon(data []byte) (SalesContractObject, error) {
+
+	ar := SalesContractObject{}
+	err := json.Unmarshal([]byte(data), &ar)
+	if err != nil {
+		fmt.Println("Unmarshal failed : ", err)
+	}
+
+	return ar, err
+}
+
 // CTRCTtoJSON Converts an contract Object to a JSON String
 func CTRCTtoJSON(c SalesContractObject) ([]byte, error) {
 
@@ -780,10 +791,10 @@ func (t *SimpleChaincode) getContractHistory(stub shim.ChaincodeStubInterface, a
 
 	nCol := GetNumberOfKeys("TransactionHistory")
 
-	tlist := make([]AssetObject, len(rows))
+	tlist := make([]SalesContractObject, len(rows))
 	for i := 0; i < len(rows); i++ {
 		ts := rows[i].Columns[nCol].GetBytes()
-		ar, err := JSONtoAR(ts)
+		ar, err := JSONtoCon(ts)
 		if err != nil {
 			fmt.Println("GetAssets() Failed : Ummarshall error")
 			return nil, fmt.Errorf("GetAssets() operation failed. %s", err)
