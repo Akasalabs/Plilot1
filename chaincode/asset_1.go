@@ -29,11 +29,14 @@ type AssetObject struct {
 //	 Status types - contract lifecycle is broken down into 5 statuses, this is part of the business logic to determine what can
 //					be done to the vehicle at points in it's lifecycle
 //==============================================================================================================================
-const STATE_OPEN = 0
-const STATE_READYFORSHIPMENT = 1
-const STATE_INTRANSIT = 2
-const STATE_SHIPMENT_REACHED = 3
-const STATE_SHIPMENT_DELIVERED = 4
+const STATE_OBD_REQUEST_CREATED = 0
+const STATE_READY_FOR_DISPATCH = 1
+const STATE_ARRIVAL_OF_TRANSPORTER = 2
+const STATE_READY_FOR_SHIPMENT = 3
+const STATE_IN_TRANSIT = 4
+const STATE_SHIPMENT_DELIVERED = 5
+const STATE_AMENDED = 6
+const STATE_DROPPED = 7
 
 const SELLER = "seller"
 const TRANSPORTER = "transporter"
@@ -51,12 +54,48 @@ type SalesContractObject struct {
 	TimeStamp   string // This is the time stamp
 }
 
-var tables = []string{"AssetTable", "TransactionHistory"}
+type DispatchOrderObject struct {
+	dispatchOrderId                string
+	stage                          int
+	customer                       string
+	transporter                    string
+	seller                         string
+	assetIDs                       string
+	asnNumber                      string
+	source                         string
+	shipmentType                   string
+	contractType                   string
+	deliveryTerm                   string
+	dispatchDate                   string
+	transporterRef                 string
+	loadingType                    string
+	vehicleType                    string
+	weight                         string
+	consignment                    string
+	quantity                       string
+	partNumber                     string
+	partName                       string
+	orderRefNum                    string
+	createdOn                      string
+	documentID1                    string
+	documentID2                    string
+	documentID3                    string
+	documentID4                    string
+	dropDescription                string
+	deliverydescription            string
+	inTransitDisptachOfficerSigned string
+	inTransitTransporterSigned     string
+	transactionDescription         string
+	timeStamp                      string // This is the time stamp
+}
+
+var tables = []string{"AssetTable", "TransactionHistory", "DocumentTable"}
 
 func GetNumberOfKeys(tname string) int {
 	TableMap := map[string]int{
 		"AssetTable":         2,
 		"TransactionHistory": 3,
+		"DocumentTable":      2,
 	}
 	return TableMap[tname]
 }
@@ -83,11 +122,6 @@ func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface, function string
 		if err != nil {
 			return nil, fmt.Errorf("Init(): InitLedger of %s  Failed ", val)
 		}
-	}
-	// Update the ledger with the Application version
-	err = stub.PutState("version", []byte(strconv.Itoa(23)))
-	if err != nil {
-		return nil, err
 	}
 
 	fmt.Println("Init() Initialization Complete  : ", args)
@@ -478,7 +512,7 @@ func CreateContractObject(args []string) (SalesContractObject, error) {
 		return myContract, errors.New("CreateAssetbject(): Stage should be set as open")
 	}
 
-	myContract = SalesContractObject{args[0], STATE_OPEN, args[2], args[3], args[4], args[5], args[6], time.Now().Format("20060102150405")}
+	myContract = SalesContractObject{args[0], STATE_READY_FOR_DISPATCH, args[2], args[3], args[4], args[5], args[6], time.Now().Format("20060102150405")}
 
 	fmt.Println("CreateContractObject(): Contract Object created: ", myContract.Contractid, myContract.Stage, myContract.Buyer, myContract.Transporter, myContract.Seller, myContract.AssetID, myContract.DocumentID, time.Now().Format("20060102150405"))
 	return myContract, nil
@@ -556,11 +590,11 @@ func (t *SimpleChaincode) toReadyForShipment(stub shim.ChaincodeStubInterface, a
 		return nil, errors.New("Failed to get contract object")
 	}
 
-	if sc.Stage == STATE_OPEN &&
+	if sc.Stage == STATE_READY_FOR_DISPATCH &&
 		sc.Seller == caller &&
 		callerAffiliation == SELLER {
-		sc.Stage = STATE_READYFORSHIPMENT // and mark it in the state of ready for shipment
-		sc.DocumentID = newDocumentID     //attach the new document
+		sc.Stage = STATE_READY_FOR_SHIPMENT // and mark it in the state of ready for shipment
+		sc.DocumentID = newDocumentID       //attach the new document
 	} else { // Otherwise if there is an error
 		fmt.Printf("sellerToTransporter: Permission Denied")
 		return nil, errors.New(fmt.Sprintf("Permission Denied. sellerToTransporter"))
@@ -591,10 +625,10 @@ func (t *SimpleChaincode) toInTransit(stub shim.ChaincodeStubInterface, args []s
 		return nil, errors.New("Failed to get contract object")
 	}
 
-	if sc.Stage == STATE_READYFORSHIPMENT &&
+	if sc.Stage == STATE_READY_FOR_SHIPMENT &&
 		sc.Transporter == caller &&
 		callerAffiliation == TRANSPORTER {
-		sc.Stage = STATE_INTRANSIT // and mark it in the state of ready for shipment
+		sc.Stage = STATE_IN_TRANSIT // and mark it in the state of ready for shipment
 	} else { // Otherwise if there is an error
 		fmt.Printf("toInTransit: Permission Denied")
 		return nil, errors.New(fmt.Sprintf("Permission Denied. toInTransit"))
@@ -625,10 +659,10 @@ func (t *SimpleChaincode) toShipmentReached(stub shim.ChaincodeStubInterface, ar
 		return nil, errors.New("Failed to get contract object")
 	}
 
-	if sc.Stage == STATE_INTRANSIT &&
+	if sc.Stage == STATE_IN_TRANSIT &&
 		sc.Transporter == caller &&
 		callerAffiliation == TRANSPORTER {
-		sc.Stage = STATE_SHIPMENT_REACHED // and mark it in the state of ready for shipment
+		sc.Stage = STATE_SHIPMENT_DELIVERED // and mark it in the state of ready for shipment
 	} else { // Otherwise if there is an error
 		fmt.Printf("toShipmentReached() : Permission Denied")
 		return nil, errors.New(fmt.Sprintf("Permission Denied. toInTransit"))
@@ -659,7 +693,7 @@ func (t *SimpleChaincode) toShipmentDelivered(stub shim.ChaincodeStubInterface, 
 		return nil, errors.New("Failed to get contract object")
 	}
 
-	if sc.Stage == STATE_SHIPMENT_REACHED &&
+	if sc.Stage == STATE_SHIPMENT_DELIVERED &&
 		sc.Transporter == caller &&
 		callerAffiliation == BUYER {
 		sc.Stage = STATE_SHIPMENT_DELIVERED // and mark it in the state of ready for shipment
