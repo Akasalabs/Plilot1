@@ -15,15 +15,7 @@ import (
 type SimpleChaincode struct {
 }
 
-var assestIndexstr = "_assestindex"
-
-// AssetObject struct
-type AssetObject struct {
-	Serialno string
-	Partno   string
-	Owner    string
-	State    string
-}
+var dispatchOrderIndexstr = "_dispatchOrderindex"
 
 //==============================================================================================================================
 //	 Status types - contract lifecycle is broken down into 5 statuses, this is part of the business logic to determine what can
@@ -41,18 +33,6 @@ const STATE_DROPPED = 7
 const SELLER = "seller"
 const TRANSPORTER = "transporter"
 const BUYER = "lease_company"
-
-// SalesContractObject struct
-type SalesContractObject struct {
-	Contractid  string
-	Stage       int
-	Buyer       string
-	Transporter string
-	Seller      string
-	AssetID     string
-	DocumentID  string
-	TimeStamp   string // This is the time stamp
-}
 
 type DispatchOrderObject struct {
 	dispatchOrderId                string
@@ -124,6 +104,11 @@ func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface, function string
 		}
 	}
 
+	err = stub.PutState("_dispatchOrderindex", []byte(dispatchOrderIndexstr))
+	if err != nil {
+		return nil, err
+	}
+
 	fmt.Println("Init() Initialization Complete  : ", args)
 	return []byte("Init(): Initialization Complete"), nil
 }
@@ -166,25 +151,8 @@ func InitLedger(stub shim.ChaincodeStubInterface, tableName string) error {
 func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
 	fmt.Println("invoke is running " + function)
 
-	// Handle different functions
-	if function == "init" {
-		return t.Init(stub, "init", args)
-	} else if function == "invokeAsset" {
-		return t.invokeAsset(stub, args)
-	} else if function == "ownerUpdation" {
-		return t.updateOwner(stub, args)
-	} else if function == "initContract" {
-		return t.initContract(stub, args)
-	} else if function == "contractUpdation" {
-		return t.updateContract(stub, args)
-	} else if function == "readyForShipment" {
-		return t.toReadyForShipment(stub, args)
-	} else if function == "inTransit" {
-		return t.toInTransit(stub, args)
-	} else if function == "shipmentReached" {
-		return t.toShipmentReached(stub, args)
-	} else if function == "shipmentDelivered" {
-		return t.toShipmentDelivered(stub, args)
+	if function == "createDispatchOrder" {
+		return t.createDispatchOrder(stub, args)
 	}
 	fmt.Println("invoke did not find func: " + function) //error
 
@@ -196,86 +164,45 @@ func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function strin
 	fmt.Println("query is running " + function)
 
 	// Handle different functions
-	if function == "readState" { //read a variable
-		return t.readState(stub, args)
-	} else if function == "keys" {
+	if function == "keys" {
 		return t.getAllKeys(stub, args)
 	} else if function == "readContract" { //read a contract
 		return t.readContract(stub, args)
-	} else if function == "readContract" { //read a contract
-		return t.readContract(stub, args)
-	} else if function == "getOpenAssets" { //read a contract
-		return t.getAssets(stub, args)
-	} else if function == "getAssets" {
-		return t.GetAsset(stub, args)
-	} else if function == "getContractHistory" {
-		return t.getContractHistory(stub, args)
 	}
 
 	fmt.Println("query did not find func: " + function) //error
-
 	return nil, errors.New("Received unknown function query " + function)
 }
 
-// invokes an asset into the table
-func (t *SimpleChaincode) invokeAsset(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
-
-	assetObject, err := CreateAssetObject(args[0:])
-	if err != nil {
-		fmt.Println("invokeAsset(): Cannot create item object \n")
-		return nil, err
-	}
-
-	/*// Check if the Owner ID specified is registered and valid */
-	// Convert Item Object to JSON
-	fmt.Println("assetObject is", assetObject)
-	buff, err := ARtoJSON(assetObject)
-	fmt.Println("buff is ", buff)
-	if err != nil {
-		fmt.Println("invokeAsset() : Failed Cannot create object buffer for write : ", args[1])
-		return nil, errors.New("invokeAsset(): Failed Cannot create object buffer for write : " + args[1])
-	} else {
-		// Update the ledger with the Buffer Data
-		// err = stub.PutState(args[0], buff)
-		keys := []string{"asset", assetObject.Owner}
-		err = UpdateLedger(stub, "AssetTable", keys, buff)
-		if err != nil {
-			fmt.Println("PostItem() : write error while inserting record\n")
-			return buff, err
-		}
-		return nil, nil
-	}
-}
-
-func (t *SimpleChaincode) initContract(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+func (t *SimpleChaincode) createDispatchOrder(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 	var err error
 
-	//convert the arguments into an asset Object
-	contractObject, err := CreateContractObject(args[0:])
+	//convert the arguments into an Diapatch order Object
+	dispatchObject, err := CreateDispatchOrderObject(args[0:])
 	if err != nil {
-		fmt.Println("initContract(): Cannot create contract object ")
-		return nil, errors.New("initAsset(): Cannot create contract object")
+		fmt.Println("createDispatchOrder(): Cannot create dispatch object ")
+		return nil, errors.New("createDispatchOrder(): Cannot create dipatch object")
 	}
 
-	// check if the contract already exists
-	contractAsBytes, err := stub.GetState(contractObject.Contractid)
+	// check if the DispatchOrder already exists
+	contractAsBytes, err := stub.GetState(dispatchObject.dispatchOrderId)
 	if err != nil {
-		fmt.Println("initContract() : failed to get contract")
-		return nil, errors.New("Failed to get contract")
+		fmt.Println("createDispatchOrder() : failed to get contract")
+		return nil, errors.New("Failed to get dispatchOrder")
 	}
 	if contractAsBytes != nil {
-		fmt.Println("initContract() : contract already exists for ", contractObject.Contractid)
-		jsonResp := "{\"Error\":\"Failed - contract already exists " + contractObject.Contractid + "\"}"
+		fmt.Println("initContract() : contract already exists for ", dispatchObject.dispatchOrderId)
+		jsonResp := "{\"Error\":\"Failed - contract already exists " + dispatchObject.dispatchOrderId + "\"}"
 		return nil, errors.New(jsonResp)
 	}
 
-	buff, err := CTRCTtoJSON(contractObject)
+	buff, err := doToJSON(dispatchObject)
 	if err != nil {
 		errorStr := "initContract() : Failed Cannot create object buffer for write : " + args[1]
 		fmt.Println(errorStr)
 		return nil, errors.New(errorStr)
 	}
-	err = stub.PutState(args[0], buff)
+	err = stub.PutState(dispatchObject.dispatchOrderId, buff)
 	if err != nil {
 		fmt.Println("initContract() : write error while inserting record\n")
 		return nil, errors.New("initContract() : write error while inserting record : " + err.Error())
@@ -283,34 +210,7 @@ func (t *SimpleChaincode) initContract(stub shim.ChaincodeStubInterface, args []
 
 	// make an entry into transaction history table
 
-	keys := []string{contractObject.Contractid, strconv.Itoa(contractObject.Stage), time.Now().Format("2006-01-02 15:04:05")}
-	fmt.Println("keys are", keys)
-	err = UpdateLedger(stub, "TransactionHistory", keys, buff)
-	if err != nil {
-		fmt.Println("initContract() : write error while inserting record\n")
-		return buff, err
-	}
-
 	return nil, nil
-}
-
-// read function return value
-func (t *SimpleChaincode) readState(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
-	var name, jsonResp string
-	var err error
-
-	if len(args) != 1 {
-		return nil, errors.New("Incorrect number of arguments. Expecting name of the var to query")
-	}
-
-	name = args[0]
-	valAsbytes, err := stub.GetState(name)
-	if err != nil {
-		jsonResp = "{\"Error\":\"Failed to get state for " + name + "\"}"
-		return nil, errors.New(jsonResp)
-	}
-
-	return valAsbytes, nil
 }
 
 // read function return value
@@ -330,100 +230,6 @@ func (t *SimpleChaincode) readContract(stub shim.ChaincodeStubInterface, args []
 	}
 
 	return valAsbytes, nil
-}
-
-// read function return value
-func (t *SimpleChaincode) updateOwner(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
-	var jsonResp string
-	var err error
-
-	if len(args) != 2 {
-		return nil, errors.New("Incorrect number of arguments. Expecting 2 args")
-	}
-
-	serialNo := args[0]
-	newOwner := args[1]
-	valAsbytes, err := stub.GetState(serialNo)
-	if err != nil {
-		jsonResp = "{\"Error\":\"Failed to get state for " + serialNo + "\"}"
-		return nil, errors.New(jsonResp)
-	}
-	dat, err := JSONtoArgs(valAsbytes)
-	if err != nil {
-		return nil, errors.New("unable to convert jsonToArgs for" + serialNo)
-	}
-	fmt.Println(dat)
-
-	serialFromLedger := dat["Serialno"].(string)
-	fmt.Println(serialFromLedger)
-	partFromLeger := dat["Partno"].(string)
-	fmt.Println(partFromLeger)
-
-	myAsset := AssetObject{serialFromLedger, partFromLeger, newOwner, args[3]}
-
-	buff, err := ARtoJSON(myAsset)
-	if err != nil {
-		errorStr := "initAssset() : Failed Cannot create object buffer for write : " + args[1]
-		fmt.Println(errorStr)
-		return nil, errors.New(errorStr)
-	}
-	err = stub.PutState(serialFromLedger, buff)
-	if err != nil {
-		fmt.Println("initAssset() : write error while inserting record\n")
-		return nil, errors.New("initAssset() : write error while inserting record : " + err.Error())
-	}
-	return nil, nil
-}
-
-// read function return value
-func (t *SimpleChaincode) updateContract(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
-	var jsonResp string
-	var err error
-
-	if len(args) != 3 {
-		return nil, errors.New("Incorrect number of arguments. Expecting 3 args")
-	}
-
-	Contractid := args[0]
-	NewDocumentID := args[1]
-	Newstage, err := strconv.Atoi(args[2])
-	if err != nil {
-		fmt.Println("updateContract(): Stage should be an integer create failed! ")
-		return nil, errors.New("updateContract(): Stage should be an integer create failed. ")
-	}
-	contractAsbytes, err := stub.GetState(Contractid)
-	if err != nil {
-		jsonResp = "{\"Error\":\"Failed to get state for " + Contractid + "\"}"
-		return nil, errors.New(jsonResp)
-	}
-	dat, err := JSONtoArgs(contractAsbytes)
-	if err != nil {
-		return nil, errors.New("unable to convert jsonToArgs for" + Contractid)
-	}
-	fmt.Println(dat)
-
-	updatedContract := SalesContractObject{dat["Contractid"].(string), Newstage, dat["Buyer"].(string), dat["Transporter"].(string), dat["Seller"].(string), dat["AssetID"].(string), NewDocumentID, time.Now().Format("20060102150405")}
-
-	buff, err := CTRCTtoJSON(updatedContract)
-	if err != nil {
-		errorStr := "updateContract() : Failed Cannot create object buffer for write : " + args[0]
-		fmt.Println(errorStr)
-		return nil, errors.New(errorStr)
-	}
-	err = stub.PutState(dat["Contractid"].(string), buff)
-	if err != nil {
-		fmt.Println("initAssset() : write error while inserting record\n")
-		return nil, errors.New("initAssset() : write error while inserting record : " + err.Error())
-	}
-
-	// make an entry into transaction history table
-	keys := []string{updatedContract.Contractid, strconv.Itoa(updatedContract.Stage), time.Now().Format("2006-01-02 15:04:05")}
-	err = UpdateLedger(stub, "TransactionHistory", keys, buff)
-	if err != nil {
-		fmt.Println("initContract() : write error while inserting record\n")
-		return buff, err
-	}
-	return nil, nil
 }
 
 func (t *SimpleChaincode) getAllKeys(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
@@ -462,480 +268,34 @@ func (t *SimpleChaincode) getAllKeys(stub shim.ChaincodeStubInterface, args []st
 	return jsonKeys, nil
 }
 
-// CreateAssetObject creates an asset
-func CreateAssetObject(args []string) (AssetObject, error) {
-	// S001 LHTMO bosch
-	// var err error
-	var myAsset AssetObject
-
-	// Check there are 4 Arguments provided as per the the struct
-	if len(args) != 4 {
-		fmt.Println("CreateAssetObject(): Incorrect number of arguments. Expecting 4 ")
-		return myAsset, errors.New("CreateAssetObject(): Incorrect number of arguments. Expecting 4 ")
-	}
-
-	// Validate Serialno is an integer
-
-	/*_, err = strconv.Atoi(args[0])
-	if err != nil {
-		fmt.Println("CreateAssetObject(): SerialNo should be an integer create failed! ")
-		return myAsset, errors.New("CreateAssetbject(): SerialNo should be an integer create failed. ")
-	}*/
-
-	myAsset = AssetObject{args[0], args[1], args[2], args[3]}
-
-	fmt.Println("CreateAssetObject(): Asset Object created: ", myAsset.Serialno, myAsset.Partno, myAsset.Owner, myAsset.State)
-	return myAsset, nil
-}
-
 // CreateContractObject creates an contract
-func CreateContractObject(args []string) (SalesContractObject, error) {
+func CreateDispatchOrderObject(args []string) (DispatchOrderObject, error) {
 	// S001 LHTMO bosch
 	var err error
-	var myContract SalesContractObject
+	var myDispatchOrder DispatchOrderObject
 
-	// Check there are 3 Arguments provided as per the the struct
-	if len(args) != 8 {
-		fmt.Println("CreateContractObject(): Incorrect number of arguments. Expecting 8 ")
-		return myContract, errors.New("CreateContractObject(): Incorrect number of arguments. Expecting 8 ")
+	// Check there are 31 Arguments provided as per the the struct, time is computed
+	if len(args) != 31 {
+		fmt.Println("CreateDispatchOrderObject(): Incorrect number of arguments. Expecting 31 ")
+		return myDispatchOrder, errors.New("CreateDispatchOrderObject(): Incorrect number of arguments. Expecting 31 ")
 	}
 
-	// Validate Serialno is an integer
-
-	stage, err := strconv.Atoi(args[1])
-	if err != nil {
-		fmt.Println("CreateAssetObject(): Stage should be an integer create failed! ")
-		return myContract, errors.New("CreateAssetbject(): Stage should be an integer create failed. ")
-	}
-	if stage != 0 {
-		fmt.Println("CreateAssetObject(): Stage should be set as open ")
-		return myContract, errors.New("CreateAssetbject(): Stage should be set as open")
-	}
-
-	myContract = SalesContractObject{args[0], STATE_READY_FOR_DISPATCH, args[2], args[3], args[4], args[5], args[6], time.Now().Format("20060102150405")}
-
-	fmt.Println("CreateContractObject(): Contract Object created: ", myContract.Contractid, myContract.Stage, myContract.Buyer, myContract.Transporter, myContract.Seller, myContract.AssetID, myContract.DocumentID, time.Now().Format("20060102150405"))
-	return myContract, nil
-}
-
-// ARtoJSON Converts an Asset Object to a JSON String
-func ARtoJSON(ast AssetObject) ([]byte, error) {
-
-	ajson, err := json.Marshal(ast)
+	//check whether the dispatch order already exists
+	myDispatchOrder = DispatchOrderObject{args[0], STATE_OBD_REQUEST_CREATED, args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14], args[15], args[16], args[17], args[18], args[19], args[20], args[21], args[22], args[23], args[24], args[25], args[26], args[27], args[28], args[29], args[30], time.Now().Format("20060102150405")}
 	if err != nil {
 		fmt.Println(err)
-		return nil, err
+		return myDispatchOrder, err
 	}
-	return ajson, nil
+	//fmt.Println("CreateContractObject(): Contract Object created: ", myContract.Contractid, myContract.Stage, myContract.Buyer, myContract.Transporter, myContract.Seller, myContract.AssetID, myContract.DocumentID, time.Now().Format("20060102150405"))
+	return myDispatchOrder, nil
 }
 
-func JSONtoAR(data []byte) (AssetObject, error) {
-
-	ar := AssetObject{}
-	err := json.Unmarshal([]byte(data), &ar)
-	if err != nil {
-		fmt.Println("Unmarshal failed : ", err)
-	}
-
-	return ar, err
-}
-
-func JSONtoCon(data []byte) (SalesContractObject, error) {
-
-	ar := SalesContractObject{}
-	err := json.Unmarshal([]byte(data), &ar)
-	if err != nil {
-		fmt.Println("Unmarshal failed : ", err)
-	}
-
-	return ar, err
-}
-
-// CTRCTtoJSON Converts an contract Object to a JSON String
-func CTRCTtoJSON(c SalesContractObject) ([]byte, error) {
-
+// doToJSON Converts an dispatch Object to a JSON String
+func doToJSON(c DispatchOrderObject) ([]byte, error) {
 	cjson, err := json.Marshal(c)
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
 	}
 	return cjson, nil
-}
-
-// JSON To args[] - return a map of the JSON string
-func JSONtoArgs(Avalbytes []byte) (map[string]interface{}, error) {
-
-	var data map[string]interface{}
-
-	if err := json.Unmarshal(Avalbytes, &data); err != nil {
-		return nil, err
-	}
-
-	return data, nil
-}
-
-//	 Transfer Functions
-//	 seller to transporter
-
-func (t *SimpleChaincode) toReadyForShipment(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
-
-	contractid := args[0]
-	caller := args[1]
-	callerAffiliation := args[2]
-	newDocumentID := args[3]
-	// check if the contract exists
-	sc, err := getContractObject(stub, contractid)
-	if err != nil {
-		fmt.Println("sellerToTransporter() : failed to get contract object")
-		return nil, errors.New("Failed to get contract object")
-	}
-
-	if sc.Stage == STATE_READY_FOR_DISPATCH &&
-		sc.Seller == caller &&
-		callerAffiliation == SELLER {
-		sc.Stage = STATE_READY_FOR_SHIPMENT // and mark it in the state of ready for shipment
-		sc.DocumentID = newDocumentID       //attach the new document
-	} else { // Otherwise if there is an error
-		fmt.Printf("sellerToTransporter: Permission Denied")
-		return nil, errors.New(fmt.Sprintf("Permission Denied. sellerToTransporter"))
-
-	}
-
-	status, err := t.save_changes(stub, sc) // Write new state
-	if err != nil {
-		fmt.Printf("sellerToTransporter: Error saving changes: %s", err)
-		return nil, errors.New("Error saving changes")
-	}
-	fmt.Println("sellerToTransporter: Transfer complete : %s", status)
-	return nil, nil // We are Done
-
-}
-
-//	 transporter
-
-func (t *SimpleChaincode) toInTransit(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
-
-	contractid := args[0]
-	caller := args[1]
-	callerAffiliation := args[2]
-	// check if the contract exists
-	sc, err := getContractObject(stub, contractid)
-	if err != nil {
-		fmt.Println("toInTransit() : failed to get contract object")
-		return nil, errors.New("Failed to get contract object")
-	}
-
-	if sc.Stage == STATE_READY_FOR_SHIPMENT &&
-		sc.Transporter == caller &&
-		callerAffiliation == TRANSPORTER {
-		sc.Stage = STATE_IN_TRANSIT // and mark it in the state of ready for shipment
-	} else { // Otherwise if there is an error
-		fmt.Printf("toInTransit: Permission Denied")
-		return nil, errors.New(fmt.Sprintf("Permission Denied. toInTransit"))
-
-	}
-
-	status, err := t.save_changes(stub, sc) // Write new state
-	if err != nil {
-		fmt.Printf("toInTransit: Error saving changes: %s", err)
-		return nil, errors.New("Error saving changes")
-	}
-	fmt.Println("toInTransit: Transfer complete : %s", status)
-	return nil, nil // We are Done
-
-}
-
-//	 shipment reached
-
-func (t *SimpleChaincode) toShipmentReached(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
-
-	contractid := args[0]
-	caller := args[1]
-	callerAffiliation := args[2]
-	// check if the contract exists
-	sc, err := getContractObject(stub, contractid)
-	if err != nil {
-		fmt.Println("toShipmentReached() : failed to get contract object")
-		return nil, errors.New("Failed to get contract object")
-	}
-
-	if sc.Stage == STATE_IN_TRANSIT &&
-		sc.Transporter == caller &&
-		callerAffiliation == TRANSPORTER {
-		sc.Stage = STATE_SHIPMENT_DELIVERED // and mark it in the state of ready for shipment
-	} else { // Otherwise if there is an error
-		fmt.Printf("toShipmentReached() : Permission Denied")
-		return nil, errors.New(fmt.Sprintf("Permission Denied. toInTransit"))
-
-	}
-
-	status, err := t.save_changes(stub, sc) // Write new state
-	if err != nil {
-		fmt.Printf("toShipmentReached() : Error saving changes: %s", err)
-		return nil, errors.New("Error saving changes")
-	}
-	fmt.Println("toShipmentReached() : Transfer complete : %s", status)
-	return nil, nil // We are Done
-
-}
-
-//	 shipment reached
-
-func (t *SimpleChaincode) toShipmentDelivered(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
-
-	contractid := args[0]
-	caller := args[1]
-	callerAffiliation := args[2]
-	// check if the contract exists
-	sc, err := getContractObject(stub, contractid)
-	if err != nil {
-		fmt.Println("toShipmentDelivered() : failed to get contract object")
-		return nil, errors.New("Failed to get contract object")
-	}
-
-	if sc.Stage == STATE_SHIPMENT_DELIVERED &&
-		sc.Transporter == caller &&
-		callerAffiliation == BUYER {
-		sc.Stage = STATE_SHIPMENT_DELIVERED // and mark it in the state of ready for shipment
-	} else { // Otherwise if there is an error
-		fmt.Printf("toShipmentDelivered() : Permission Denied")
-		return nil, errors.New(fmt.Sprintf("Permission Denied. toInTransit"))
-
-	}
-
-	status, err := t.save_changes(stub, sc) // Write new state
-	if err != nil {
-		fmt.Printf("toShipmentDelivered() : Error saving changes: %s", err)
-		return nil, errors.New("Error saving changes")
-	}
-	fmt.Println("toShipmentDelivered() : Transfer complete : %s", status)
-	return nil, nil // We are Done
-
-}
-
-// save_changes - Writes to the ledger the Contract struct passed in a JSON format. Uses the shim file's
-//				  method 'PutState'.
-func (t *SimpleChaincode) save_changes(stub shim.ChaincodeStubInterface, sc SalesContractObject) (bool, error) {
-
-	bytes, err := json.Marshal(sc)
-
-	if err != nil {
-		fmt.Printf("SAVE_CHANGES: Error converting contract : %s", err)
-		return false, errors.New("Error converting contract ")
-	}
-
-	err = stub.PutState(sc.Contractid, bytes)
-
-	if err != nil {
-		fmt.Printf("SAVE_CHANGES: Error storing contract : %s", err)
-		return false, errors.New("Error storing contract")
-	}
-	return true, nil
-}
-
-func getContractObject(stub shim.ChaincodeStubInterface, contractID string) (SalesContractObject, error) {
-
-	// check that the contract already exists
-	var sco SalesContractObject
-	contractAsBytes, err := stub.GetState(contractID)
-	if err != nil {
-		fmt.Println("getcontractObject() : failed to get contract")
-		return sco, errors.New("Failed to get contract")
-	}
-	if contractAsBytes == nil {
-		fmt.Println("getcontractObject() : erreneous contact object for", contractID)
-		jsonResp := "{\"Error\":\"Failed - erreneous contact object for" + contractID + "\"}"
-		return sco, errors.New(jsonResp)
-	}
-	dat, err := JSONtoArgs(contractAsBytes)
-	if err != nil {
-		fmt.Println("getcontractObject() : failed to convert to object")
-		return sco, errors.New("Failed to convert to object")
-	}
-	stage := dat["Stage"].(float64)
-	salesContract := SalesContractObject{dat["Contractid"].(string), int(stage), dat["Buyer"].(string), dat["Transporter"].(string), dat["Seller"].(string), dat["AssetID"].(string), dat["DocumentID"].(string), dat["TimeStamp"].(string)}
-	return salesContract, nil
-}
-
-func UpdateLedger(stub shim.ChaincodeStubInterface, tableName string, keys []string, args []byte) error {
-
-	fmt.Println("buffer is ", args)
-	fmt.Println("keys is ", keys)
-
-	nKeys := GetNumberOfKeys(tableName)
-	if nKeys < 1 {
-		fmt.Println("Atleast 1 Key must be provided \n")
-	}
-
-	var columns []*shim.Column
-
-	for i := 0; i < nKeys; i++ {
-		col := shim.Column{Value: &shim.Column_String_{String_: keys[i]}}
-		columns = append(columns, &col)
-	}
-
-	lastCol := shim.Column{Value: &shim.Column_Bytes{Bytes: []byte(args)}}
-	columns = append(columns, &lastCol)
-
-	row := shim.Row{columns}
-	fmt.Println("appending row is", row)
-	ok, err := stub.InsertRow(tableName, row)
-	if err != nil {
-		return fmt.Errorf("UpdateLedger: InsertRow into "+tableName+" Table operation failed. %s", err)
-	}
-	if !ok {
-		return errors.New("UpdateLedger: InsertRow into " + tableName + " Table failed. Row with given key " + keys[0] + " already exists")
-	}
-
-	fmt.Println("UpdateLedger: InsertRow into ", tableName, " Table operation Successful. ")
-	return nil
-}
-
-func (t *SimpleChaincode) getAssets(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
-
-	rows, err := GetList(stub, "AssetTable", args)
-	if err != nil {
-		return nil, fmt.Errorf("GetAssets() operation failed. Error marshaling JSON: %s", err)
-	}
-
-	nCol := GetNumberOfKeys("AssetTable")
-
-	tlist := make([]AssetObject, len(rows))
-	for i := 0; i < len(rows); i++ {
-		ts := rows[i].Columns[nCol].GetBytes()
-		ar, err := JSONtoAR(ts)
-		if err != nil {
-			fmt.Println("GetAssets() Failed : Ummarshall error")
-			return nil, fmt.Errorf("GetAssets() operation failed. %s", err)
-		}
-		tlist[i] = ar
-	}
-
-	jsonRows, _ := json.Marshal(tlist)
-
-	//fmt.Println("List of Open Auctions : ", jsonRows)
-	return jsonRows, nil
-
-}
-
-func (t *SimpleChaincode) getContractHistory(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
-
-	rows, err := GetList(stub, "TransactionHistory", args)
-	if err != nil {
-		return nil, fmt.Errorf("GetAssets() operation failed. Error marshaling JSON: %s", err)
-	}
-
-	nCol := GetNumberOfKeys("TransactionHistory")
-
-	tlist := make([]SalesContractObject, len(rows))
-	for i := 0; i < len(rows); i++ {
-		ts := rows[i].Columns[nCol].GetBytes()
-		ar, err := JSONtoCon(ts)
-		if err != nil {
-			fmt.Println("GetAssets() Failed : Ummarshall error")
-			return nil, fmt.Errorf("GetAssets() operation failed. %s", err)
-		}
-		tlist[i] = ar
-	}
-
-	jsonRows, _ := json.Marshal(tlist)
-
-	//fmt.Println("List of Open Auctions : ", jsonRows)
-	return jsonRows, nil
-
-}
-
-func GetList(stub shim.ChaincodeStubInterface, tableName string, args []string) ([]shim.Row, error) {
-	var columns []shim.Column
-
-	nKeys := GetNumberOfKeys(tableName)
-	nCol := len(args)
-	if nCol < 1 {
-		fmt.Println("Atleast 1 Key must be provided \n")
-		return nil, errors.New("GetList failed. Must include at least key values")
-	}
-
-	for i := 0; i < nCol; i++ {
-		colNext := shim.Column{Value: &shim.Column_String_{String_: args[i]}}
-		columns = append(columns, colNext)
-	}
-
-	rowChannel, err := stub.GetRows(tableName, columns)
-	if err != nil {
-		return nil, fmt.Errorf("GetList operation failed. %s", err)
-	}
-	var rows []shim.Row
-	for {
-		select {
-		case row, ok := <-rowChannel:
-			if !ok {
-				rowChannel = nil
-			} else {
-				rows = append(rows, row)
-				//If required enable for debugging
-				//fmt.Println(row)
-			}
-		}
-		if rowChannel == nil {
-			break
-		}
-	}
-
-	fmt.Println("Number of Keys retrieved : ", nKeys)
-	fmt.Println("Number of rows retrieved : ", len(rows))
-	return rows, nil
-}
-
-func (t *SimpleChaincode) GetAsset(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
-
-	var err error
-
-	// Get the Objects and Display it
-	Avalbytes, err := QueryLedger(stub, "AssetTable", args)
-
-	if err != nil {
-		fmt.Println("GetItem() : Failed to Query Object ")
-		jsonResp := "{\"Error\":\"Failed to get  Object Data for " + args[0] + "\"}"
-		return nil, errors.New(jsonResp)
-	}
-
-	if Avalbytes == nil {
-		fmt.Println("GetItem() : Incomplete Query Object ")
-		jsonResp := "{\"Error\":\"Incomplete information about the key for " + args[0] + "\"}"
-		return nil, errors.New(jsonResp)
-	}
-
-	fmt.Println("GetItem() : Response : Successfull ")
-	return Avalbytes, nil
-}
-
-func QueryLedger(stub shim.ChaincodeStubInterface, tableName string, args []string) ([]byte, error) {
-
-	var columns []shim.Column
-	nCol := GetNumberOfKeys(tableName)
-	for i := 0; i < nCol; i++ {
-		colNext := shim.Column{Value: &shim.Column_String_{String_: args[i]}}
-		columns = append(columns, colNext)
-	}
-
-	row, err := stub.GetRow(tableName, columns)
-	if err != nil {
-		return nil, errors.New("unable to query row!")
-	}
-	fmt.Println("Length or number of rows retrieved ", len(row.Columns))
-
-	if len(row.Columns) == 0 {
-		jsonResp := "{\"Error\":\"Failed retrieving data " + args[0] + ". \"}"
-		fmt.Println("Error retrieving data record for Key = ", args[0], "Error : ", jsonResp)
-		return nil, errors.New(jsonResp)
-	}
-
-	fmt.Println("User Query Response:", row)
-	//jsonResp := "{\"Owner\":\"" + string(row.Columns[nCol].GetBytes()) + "\"}"
-	//fmt.Println("User Query Response:%s\n", jsonResp)
-	Avalbytes := row.Columns[nCol].GetBytes()
-
-	// Perform Any additional processing of data
-	fmt.Println("QueryLedger() : Successful - Proceeding to ProcessRequestType ")
-	return Avalbytes, nil
 }
