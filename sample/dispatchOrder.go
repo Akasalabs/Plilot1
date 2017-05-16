@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"strconv"
 	"time"
 	//"strconv"
 	"encoding/json"
@@ -16,26 +15,14 @@ import (
 type SimpleChaincode struct {
 }
 
-const STATE_OBD_REQUEST_CREATED = 0
-
 var dispatchOrderIndexstr = "_dispatchOrderindex"
 
+// AssetObject struct
 type DispatchOrderObject struct {
 	dispatchOrderId string
 	stage           string
 	customer        string
 	timeStamp       string // This is the time stamp
-}
-
-var tables = []string{"AssetTable", "TransactionHistory", "DocumentTable"}
-
-func GetNumberOfKeys(tname string) int {
-	TableMap := map[string]int{
-		"AssetTable":         2,
-		"TransactionHistory": 3,
-		"DocumentTable":      2,
-	}
-	return TableMap[tname]
 }
 
 func main() {
@@ -45,64 +32,16 @@ func main() {
 	}
 }
 
-// Init initializes the chain and two tables - one for asset and other for transaction history
+// Init initializes the chain
 func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
 
-	fmt.Println("Application Init")
 	var err error
-
-	for _, val := range tables {
-		err = stub.DeleteTable(val)
-		if err != nil {
-			return nil, fmt.Errorf("Init(): DeleteTable of %s  Failed ", val)
-		}
-		err = InitLedger(stub, val)
-		if err != nil {
-			return nil, fmt.Errorf("Init(): InitLedger of %s  Failed ", val)
-		}
-	}
-
-	err = stub.PutState("_dispatchOrderindex", []byte(dispatchOrderIndexstr))
+	err = stub.PutState("hello world!", []byte(dispatchOrderIndexstr))
 	if err != nil {
 		return nil, err
 	}
 
-	fmt.Println("Init() Initialization Complete  : ", args)
-	return []byte("Init(): Initialization Complete"), nil
-}
-
-func InitLedger(stub shim.ChaincodeStubInterface, tableName string) error {
-
-	// Generic Table Creation Function - requires Table Name and Table Key Entry
-	// Create Table - Get number of Keys the tables supports
-	// This version assumes all Keys are String and the Data is Bytes
-
-	nKeys := GetNumberOfKeys(tableName)
-	if nKeys < 1 {
-		fmt.Println("Atleast 1 Key must be provided \n")
-		fmt.Println("Auction_Application: Failed creating Table ", tableName)
-		return errors.New("Auction_Application: Failed creating Table " + tableName)
-	}
-
-	var columnDefsForTbl []*shim.ColumnDefinition
-
-	for i := 0; i < nKeys; i++ {
-		columnDef := shim.ColumnDefinition{Name: "keyName" + strconv.Itoa(i), Type: shim.ColumnDefinition_STRING, Key: true}
-		columnDefsForTbl = append(columnDefsForTbl, &columnDef)
-	}
-
-	columnLastTblDef := shim.ColumnDefinition{Name: "Details", Type: shim.ColumnDefinition_BYTES, Key: false}
-	columnDefsForTbl = append(columnDefsForTbl, &columnLastTblDef)
-
-	// Create the Table (Nil is returned if the Table exists or if the table is created successfully
-	err := stub.CreateTable(tableName, columnDefsForTbl)
-
-	if err != nil {
-		fmt.Println("Auction_Application: Failed creating Table ", tableName)
-		return errors.New("Auction_Application: Failed creating Table " + tableName)
-	}
-
-	return err
+	return nil, nil
 }
 
 // Invoke is our entry point to invoke a chaincode function
@@ -134,6 +73,42 @@ func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function strin
 	return nil, errors.New("Received unknown function query " + function)
 }
 
+func (t *SimpleChaincode) createDispatchOrder(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	var err error
+
+	//convert the arguments into an asset Object
+	dispatchObject, err := CreateDispatchObject(args[0:])
+	if err != nil {
+		fmt.Println("createDispatchOrder(): Cannot create asset object ")
+		return nil, errors.New("createDispatchOrder(): Cannot create asset object")
+	}
+
+	// check if the asset already exists
+	dispatchObjectAsBytes, err := stub.GetState(dispatchObject.dispatchOrderId)
+	if err != nil {
+		fmt.Println("createDispatchOrder() : failed to get dispatch order")
+		return nil, errors.New("Failed to get dispatch order")
+	}
+	if dispatchObjectAsBytes != nil {
+		fmt.Println("createDispatchOrder() : dispatch order exists ", dispatchObject.dispatchOrderId)
+		jsonResp := "{\"Error\":\"Failed - dispatch order exists " + dispatchObject.dispatchOrderId + "\"}"
+		return nil, errors.New(jsonResp)
+	}
+
+	buff, err := DOtoJSON(dispatchObject)
+	if err != nil {
+		errorStr := "createDispatchOrder() : Failed Cannot create object buffer for write : " + args[0]
+		fmt.Println(errorStr)
+		return nil, errors.New(errorStr)
+	}
+	err = stub.PutState(args[0], buff)
+	if err != nil {
+		fmt.Println("createDispatchOrder() : write error while inserting record\n ")
+		return nil, errors.New("createDispatchOrder() : write error while inserting record : " + err.Error())
+	}
+	return nil, nil
+}
+
 // read function return value
 func (t *SimpleChaincode) readState(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 	var name, jsonResp string
@@ -150,14 +125,6 @@ func (t *SimpleChaincode) readState(stub shim.ChaincodeStubInterface, args []str
 		return nil, errors.New(jsonResp)
 	}
 	fmt.Println("valAsBytes", valAsbytes)
-
-	obj, err := JSONtoDO(valAsbytes)
-	if err != nil {
-		jsonResp = "{\"Error\":\"Failed to conver into object" + name + "\"}"
-		return nil, errors.New(jsonResp)
-	}
-	fmt.Println("json object trying to convert is", obj)
-
 	return valAsbytes, nil
 }
 
@@ -197,86 +164,49 @@ func (t *SimpleChaincode) getAllKeys(stub shim.ChaincodeStubInterface, args []st
 	return jsonKeys, nil
 }
 
-func (t *SimpleChaincode) createDispatchOrder(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
-	var err error
-
-	//convert the arguments into an Diapatch order Object
-	dispatchObject, err := CreateDispatchOrderObject(args[0:])
-	if err != nil {
-		fmt.Println("createDispatchOrder(): Cannot create dispatch object ")
-		return nil, errors.New("createDispatchOrder(): Cannot create dipatch object")
-	}
-
-	// check if the DispatchOrder already exists
-	contractAsBytes, err := stub.GetState(dispatchObject.dispatchOrderId)
-	if err != nil {
-		fmt.Println("createDispatchOrder() : failed to get contract")
-		return nil, errors.New("Failed to get dispatchOrder")
-	}
-	if contractAsBytes != nil {
-		fmt.Println("initContract() : contract already exists for ", dispatchObject.dispatchOrderId)
-		jsonResp := "{\"Error\":\"Failed - contract already exists " + dispatchObject.dispatchOrderId + "\"}"
-		return nil, errors.New(jsonResp)
-	}
-	fmt.Println("dispatchObject is ", dispatchObject)
-	buff, err := doToJSON(dispatchObject)
-	if err != nil {
-		errorStr := "initContract() : Failed Cannot create object buffer for write : " + args[0]
-		fmt.Println(errorStr)
-		return nil, errors.New(errorStr)
-	}
-	fmt.Println("createDispatchOrder() : buffer", buff)
-	err = stub.PutState(args[0], buff)
-	if err != nil {
-		fmt.Println("initContract() : write error while inserting record\n")
-		return nil, errors.New("initContract() : write error while inserting record : " + err.Error())
-	}
-
-	// make an entry into transaction history table
-
-	return nil, nil
-}
-
-// CreateContractObject creates an contract
-func CreateDispatchOrderObject(args []string) (DispatchOrderObject, error) {
+// CreateAssetObject creates an asset
+func CreateDispatchObject(args []string) (DispatchOrderObject, error) {
 	// S001 LHTMO bosch
 	var err error
-	var myDispatchOrder DispatchOrderObject
+	var myDispatchObject DispatchOrderObject
 
-	// Check there are 31 Arguments provided as per the the struct, time is computed
+	// Check there are 3 Arguments provided as per the the struct
 	if len(args) != 3 {
-		fmt.Println("CreateDispatchOrderObject(): Incorrect number of arguments. Expecting 31 ")
-		return myDispatchOrder, errors.New("CreateDispatchOrderObject(): Incorrect number of arguments. Expecting 31 ")
+		fmt.Println("CreateAssetObject(): Incorrect number of arguments. Expecting 3 ")
+		return myDispatchObject, errors.New("CreateDispatchObject(): Incorrect number of arguments. Expecting 3 ")
 	}
 
-	//check whether the dispatch order already exists
-	myDispatchOrder = DispatchOrderObject{args[0], strconv.Itoa(STATE_OBD_REQUEST_CREATED), args[2], time.Now().Format("20060102150405")}
+	// Validate Serialno is an integer
+
+	myDispatchObject = DispatchOrderObject{args[0], args[1], args[2], time.Now().Format("20060102150405")}
 	if err != nil {
-		fmt.Println(err)
-		return myDispatchOrder, err
+		fmt.Println("CreateDispatchObject(): Dispatch order object create failed! ")
+		return myDispatchObject, errors.New("DispatchOrderObject(): Dispatch order object create failed!. ")
 	}
-	fmt.Println("CreateDispatchOrderObject(): dispatch Object created: ", myDispatchOrder.dispatchOrderId, myDispatchOrder.stage, myDispatchOrder.customer, myDispatchOrder.timeStamp)
-	return myDispatchOrder, nil
+
+	fmt.Println("CreateDispatchObject(): Dispatch Object created: ", myDispatchObject.dispatchOrderId, myDispatchObject.stage, myDispatchObject.customer, myDispatchObject.timeStamp)
+	return myDispatchObject, nil
 }
 
-// doToJSON Converts an dispatch Object to a JSON String
-func doToJSON(c DispatchOrderObject) ([]byte, error) {
-	cjson, err := json.Marshal(c)
+// ARtoJSON Converts an Asset Object to a JSON String
+func DOtoJSON(do DispatchOrderObject) ([]byte, error) {
+
+	ajson, err := json.Marshal(do)
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
 	}
-	fmt.Println("dispatch object as bytes ", cjson)
-	return cjson, nil
+	return ajson, nil
 }
 
-func JSONtoDO(data []byte) (DispatchOrderObject, error) {
+// JSON To args[] - return a map of the JSON string
+func JSONtoArgs(Avalbytes []byte) (map[string]interface{}, error) {
 
-	do := DispatchOrderObject{}
-	err := json.Unmarshal([]byte(data), &do)
-	if err != nil {
-		fmt.Println("Unmarshal failed : ", err)
+	var data map[string]interface{}
+
+	if err := json.Unmarshal(Avalbytes, &data); err != nil {
+		return nil, err
 	}
 
-	return do, err
+	return data, nil
 }
