@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 	//"strconv"
 	"encoding/json"
 	//"time"
@@ -14,6 +15,8 @@ import (
 // SimpleChaincode example simple Chaincode implementation
 type SimpleChaincode struct {
 }
+
+const STATE_OBD_REQUEST_CREATED = 0
 
 var dispatchOrderIndexstr = "_dispatchOrderindex"
 
@@ -107,6 +110,9 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 	fmt.Println("invoke is running " + function)
 
 	// Handle different functions
+	if function == "createDispatchOrder" {
+		return t.createDispatchOrder(stub, args)
+	}
 	fmt.Println("invoke did not find func: " + function) //error
 
 	return nil, errors.New("Received unknown function invocation: " + function)
@@ -181,4 +187,77 @@ func (t *SimpleChaincode) getAllKeys(stub shim.ChaincodeStubInterface, args []st
 	}
 
 	return jsonKeys, nil
+}
+
+func (t *SimpleChaincode) createDispatchOrder(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	var err error
+
+	//convert the arguments into an Diapatch order Object
+	dispatchObject, err := CreateDispatchOrderObject(args[0:])
+	if err != nil {
+		fmt.Println("createDispatchOrder(): Cannot create dispatch object ")
+		return nil, errors.New("createDispatchOrder(): Cannot create dipatch object")
+	}
+
+	// check if the DispatchOrder already exists
+	contractAsBytes, err := stub.GetState(dispatchObject.dispatchOrderId)
+	if err != nil {
+		fmt.Println("createDispatchOrder() : failed to get contract")
+		return nil, errors.New("Failed to get dispatchOrder")
+	}
+	if contractAsBytes != nil {
+		fmt.Println("initContract() : contract already exists for ", dispatchObject.dispatchOrderId)
+		jsonResp := "{\"Error\":\"Failed - contract already exists " + dispatchObject.dispatchOrderId + "\"}"
+		return nil, errors.New(jsonResp)
+	}
+
+	buff, err := doToJSON(dispatchObject)
+	if err != nil {
+		errorStr := "initContract() : Failed Cannot create object buffer for write : " + args[0]
+		fmt.Println(errorStr)
+		return nil, errors.New(errorStr)
+	}
+	fmt.Println("createDispatchOrder() : buffer", buff)
+	err = stub.PutState(args[0], buff)
+	if err != nil {
+		fmt.Println("initContract() : write error while inserting record\n")
+		return nil, errors.New("initContract() : write error while inserting record : " + err.Error())
+	}
+
+	// make an entry into transaction history table
+
+	return nil, nil
+}
+
+// CreateContractObject creates an contract
+func CreateDispatchOrderObject(args []string) (DispatchOrderObject, error) {
+	// S001 LHTMO bosch
+	var err error
+	var myDispatchOrder DispatchOrderObject
+
+	// Check there are 31 Arguments provided as per the the struct, time is computed
+	if len(args) != 3 {
+		fmt.Println("CreateDispatchOrderObject(): Incorrect number of arguments. Expecting 31 ")
+		return myDispatchOrder, errors.New("CreateDispatchOrderObject(): Incorrect number of arguments. Expecting 31 ")
+	}
+
+	//check whether the dispatch order already exists
+	myDispatchOrder = DispatchOrderObject{args[0], strconv.Itoa(STATE_OBD_REQUEST_CREATED), args[2], time.Now().Format("20060102150405")}
+	if err != nil {
+		fmt.Println(err)
+		return myDispatchOrder, err
+	}
+	fmt.Println("CreateDispatchOrderObject(): dispatch Object created: ", myDispatchOrder.dispatchOrderId, myDispatchOrder.stage, myDispatchOrder.customer, myDispatchOrder.timeStamp)
+	return myDispatchOrder, nil
+}
+
+// doToJSON Converts an dispatch Object to a JSON String
+func doToJSON(c DispatchOrderObject) ([]byte, error) {
+	cjson, err := json.Marshal(c)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	fmt.Println("dispatch object as bytes ", cjson)
+	return cjson, nil
 }
