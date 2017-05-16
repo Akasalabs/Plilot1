@@ -36,7 +36,7 @@ const BUYER = "lease_company"
 
 type DispatchOrderObject struct {
 	dispatchOrderId string
-	stage           int
+	stage           string
 	customer        string
 	timeStamp       string // This is the time stamp
 }
@@ -278,7 +278,7 @@ func CreateDispatchOrderObject(args []string) (DispatchOrderObject, error) {
 	}
 
 	//check whether the dispatch order already exists
-	myDispatchOrder = DispatchOrderObject{args[0], STATE_OBD_REQUEST_CREATED, args[2], time.Now().Format("20060102150405")}
+	myDispatchOrder = DispatchOrderObject{args[0], strconv.Itoa(STATE_OBD_REQUEST_CREATED), args[2], time.Now().Format("20060102150405")}
 	if err != nil {
 		fmt.Println(err)
 		return myDispatchOrder, err
