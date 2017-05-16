@@ -35,38 +35,10 @@ const TRANSPORTER = "transporter"
 const BUYER = "lease_company"
 
 type DispatchOrderObject struct {
-	dispatchOrderId                string
-	stage                          int
-	customer                       string
-	transporter                    string
-	seller                         string
-	assetIDs                       string
-	asnNumber                      string
-	source                         string
-	shipmentType                   string
-	contractType                   string
-	deliveryTerm                   string
-	dispatchDate                   string
-	transporterRef                 string
-	loadingType                    string
-	vehicleType                    string
-	weight                         string
-	consignment                    string
-	quantity                       string
-	partNumber                     string
-	partName                       string
-	orderRefNum                    string
-	createdOn                      string
-	documentID1                    string
-	documentID2                    string
-	documentID3                    string
-	documentID4                    string
-	dropDescription                string
-	deliverydescription            string
-	inTransitDisptachOfficerSigned string
-	inTransitTransporterSigned     string
-	transactionDescription         string
-	timeStamp                      string // This is the time stamp
+	dispatchOrderId string
+	stage           int
+	customer        string
+	timeStamp       string // This is the time stamp
 }
 
 var tables = []string{"AssetTable", "TransactionHistory", "DocumentTable"}
@@ -276,13 +248,13 @@ func CreateDispatchOrderObject(args []string) (DispatchOrderObject, error) {
 	var myDispatchOrder DispatchOrderObject
 
 	// Check there are 31 Arguments provided as per the the struct, time is computed
-	if len(args) != 31 {
+	if len(args) != 3 {
 		fmt.Println("CreateDispatchOrderObject(): Incorrect number of arguments. Expecting 31 ")
 		return myDispatchOrder, errors.New("CreateDispatchOrderObject(): Incorrect number of arguments. Expecting 31 ")
 	}
 
 	//check whether the dispatch order already exists
-	myDispatchOrder = DispatchOrderObject{args[0], STATE_OBD_REQUEST_CREATED, args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14], args[15], args[16], args[17], args[18], args[19], args[20], args[21], args[22], args[23], args[24], args[25], args[26], args[27], args[28], args[29], args[30], time.Now().Format("20060102150405")}
+	myDispatchOrder = DispatchOrderObject{args[0], STATE_OBD_REQUEST_CREATED, args[2], time.Now().Format("20060102150405")}
 	if err != nil {
 		fmt.Println(err)
 		return myDispatchOrder, err
