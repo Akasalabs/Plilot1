@@ -196,5 +196,6 @@ func DOtoJSON(do DispatchOrderObject) ([]byte, error) {
 		fmt.Println(err)
 		return nil, err
 	}
+	fmt.Println("DOtoJSON() :", ajson)
 	return ajson, nil
 }
