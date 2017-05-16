@@ -218,7 +218,7 @@ func (t *SimpleChaincode) createDispatchOrder(stub shim.ChaincodeStubInterface, 
 		jsonResp := "{\"Error\":\"Failed - contract already exists " + dispatchObject.dispatchOrderId + "\"}"
 		return nil, errors.New(jsonResp)
 	}
-
+	fmt.Println("dispatchObject is ", dispatchObject)
 	buff, err := doToJSON(dispatchObject)
 	if err != nil {
 		errorStr := "initContract() : Failed Cannot create object buffer for write : " + args[0]
