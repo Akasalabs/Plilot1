@@ -220,18 +220,14 @@ func (t *SimpleChaincode) read(stub shim.ChaincodeStubInterface, args []string) 
 	}
 
 	key = args[0]
-	valAsbytes, err := stub.GetState(key)
+	valueAsbytes, err := stub.GetState(key)
 	if err != nil {
 		jsonResp = "{\"Error\":\"Failed to get state for " + key + "\"}"
 		return nil, errors.New(jsonResp)
 	}
-	fmt.Println("read contract output ", valAsbytes)
-	jsonKeys, err := json.Marshal(valAsbytes)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("keys operation failed. Error accessing state: %s", err))
-	}
+	fmt.Println("read contract output ", valueAsbytes)
 
-	return jsonKeys, nil
+	return valueAsbytes, nil
 }
 
 func (t *SimpleChaincode) getAllKeys(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
