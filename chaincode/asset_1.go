@@ -170,7 +170,7 @@ func (t *SimpleChaincode) createDispatchOrder(stub shim.ChaincodeStubInterface, 
 
 	buff, err := doToJSON(dispatchObject)
 	if err != nil {
-		errorStr := "initContract() : Failed Cannot create object buffer for write : " + args[1]
+		errorStr := "initContract() : Failed Cannot create object buffer for write : " + args[0]
 		fmt.Println(errorStr)
 		return nil, errors.New(errorStr)
 	}
@@ -200,6 +200,10 @@ func (t *SimpleChaincode) readContract(stub shim.ChaincodeStubInterface, args []
 	valAsbytes, err := stub.GetState(name)
 	if err != nil {
 		jsonResp = "{\"Error\":\"Failed to get state for " + name + "\"}"
+		return nil, errors.New(jsonResp)
+	}
+	if valAsbytes == nil {
+		jsonResp = "{\"null object\":\"in ledger for key " + name + "\"}"
 		return nil, errors.New(jsonResp)
 	}
 	fmt.Println("read contract output ", valAsbytes)
