@@ -139,7 +139,7 @@ func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function strin
 	if function == "keys" {
 		return t.getAllKeys(stub, args)
 	} else if function == "read" { //read a contract
-		return t.readContract(stub, args)
+		return t.read(stub, args)
 	}
 
 	fmt.Println("query did not find func: " + function) //error
@@ -225,7 +225,7 @@ func (t *SimpleChaincode) read(stub shim.ChaincodeStubInterface, args []string) 
 		jsonResp = "{\"Error\":\"Failed to get state for " + key + "\"}"
 		return nil, errors.New(jsonResp)
 	}
-
+	fmt.Println("read contract output ", valAsbytes)
 	return valAsbytes, nil
 }
 
