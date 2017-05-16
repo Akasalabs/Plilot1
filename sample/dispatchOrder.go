@@ -19,10 +19,10 @@ var dispatchOrderIndexstr = "_dispatchOrderindex"
 
 // AssetObject struct
 type DispatchOrderObject struct {
-	dispatchOrderId string
-	stage           string
-	customer        string
-	timeStamp       string // This is the time stamp
+	DispatchOrderID string `json:"dispatchOrderId"`
+	Stage           string `json:"stage"`
+	Customer        string `json:"customer"`
+	TimeStamp       string `json:"timeStamp"` // This is the time stamp
 }
 
 func main() {
@@ -84,14 +84,14 @@ func (t *SimpleChaincode) createDispatchOrder(stub shim.ChaincodeStubInterface, 
 	}
 
 	// check if the asset already exists
-	dispatchObjectAsBytes, err := stub.GetState(dispatchObject.dispatchOrderId)
+	dispatchObjectAsBytes, err := stub.GetState(dispatchObject.DispatchOrderID)
 	if err != nil {
 		fmt.Println("createDispatchOrder() : failed to get dispatch order")
 		return nil, errors.New("Failed to get dispatch order")
 	}
 	if dispatchObjectAsBytes != nil {
-		fmt.Println("createDispatchOrder() : dispatch order exists ", dispatchObject.dispatchOrderId)
-		jsonResp := "{\"Error\":\"Failed - dispatch order exists " + dispatchObject.dispatchOrderId + "\"}"
+		fmt.Println("createDispatchOrder() : dispatch order exists ", dispatchObject.DispatchOrderID)
+		jsonResp := "{\"Error\":\"Failed - dispatch order exists " + dispatchObject.DispatchOrderID + "\"}"
 		return nil, errors.New(jsonResp)
 	}
 
@@ -184,7 +184,7 @@ func CreateDispatchObject(args []string) (DispatchOrderObject, error) {
 		return myDispatchObject, errors.New("DispatchOrderObject(): Dispatch order object create failed!. ")
 	}
 
-	fmt.Println("CreateDispatchObject(): Dispatch Object created: ", myDispatchObject.dispatchOrderId, myDispatchObject.stage, myDispatchObject.customer, myDispatchObject.timeStamp)
+	fmt.Println("CreateDispatchObject(): Dispatch Object created: ", myDispatchObject.DispatchOrderID, myDispatchObject.Stage, myDispatchObject.Customer, myDispatchObject.TimeStamp)
 	return myDispatchObject, nil
 }
 
@@ -197,16 +197,4 @@ func DOtoJSON(do DispatchOrderObject) ([]byte, error) {
 		return nil, err
 	}
 	return ajson, nil
-}
-
-// JSON To args[] - return a map of the JSON string
-func JSONtoArgs(Avalbytes []byte) (map[string]interface{}, error) {
-
-	var data map[string]interface{}
-
-	if err := json.Unmarshal(Avalbytes, &data); err != nil {
-		return nil, err
-	}
-
-	return data, nil
 }
