@@ -226,7 +226,7 @@ func (t *SimpleChaincode) read(stub shim.ChaincodeStubInterface, args []string) 
 		return nil, errors.New(jsonResp)
 	}
 	fmt.Println("read contract output ", valAsbytes)
-	return valAsbytes, nil
+	return []byte("randomvalue"), nil
 }
 
 func (t *SimpleChaincode) getAllKeys(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
