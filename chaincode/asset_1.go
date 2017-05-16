@@ -174,8 +174,8 @@ func (t *SimpleChaincode) createDispatchOrder(stub shim.ChaincodeStubInterface, 
 		fmt.Println(errorStr)
 		return nil, errors.New(errorStr)
 	}
+	fmt.Println("createDispatchOrder() : buffer", buff)
 	err = stub.PutState(dispatchObject.dispatchOrderId, buff)
-	fmt.Println("adding buffer into ledger", buff)
 	if err != nil {
 		fmt.Println("initContract() : write error while inserting record\n")
 		return nil, errors.New("initContract() : write error while inserting record : " + err.Error())
@@ -264,7 +264,7 @@ func CreateDispatchOrderObject(args []string) (DispatchOrderObject, error) {
 		fmt.Println(err)
 		return myDispatchOrder, err
 	}
-	//fmt.Println("CreateContractObject(): Contract Object created: ", myContract.Contractid, myContract.Stage, myContract.Buyer, myContract.Transporter, myContract.Seller, myContract.AssetID, myContract.DocumentID, time.Now().Format("20060102150405"))
+	fmt.Println("CreateDispatchOrderObject(): dispatch Object created: ", myDispatchOrder.dispatchOrderId, myDispatchOrder.stage, myDispatchOrder.customer, myDispatchOrder.timeStamp)
 	return myDispatchOrder, nil
 }
 
@@ -275,5 +275,6 @@ func doToJSON(c DispatchOrderObject) ([]byte, error) {
 		fmt.Println(err)
 		return nil, err
 	}
+	fmt.Println("dispatch object as bytes ", cjson)
 	return cjson, nil
 }
