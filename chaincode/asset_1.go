@@ -223,12 +223,13 @@ func (t *SimpleChaincode) readContract(stub shim.ChaincodeStubInterface, args []
 	}
 
 	name = args[0]
+	fmt.Println("document id to be queried is " + name)
 	valAsbytes, err := stub.GetState(name)
 	if err != nil {
 		jsonResp = "{\"Error\":\"Failed to get state for " + name + "\"}"
 		return nil, errors.New(jsonResp)
 	}
-
+	fmt.Println("read contract output ", valAsbytes)
 	return valAsbytes, nil
 }
 
