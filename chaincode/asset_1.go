@@ -175,7 +175,7 @@ func (t *SimpleChaincode) createDispatchOrder(stub shim.ChaincodeStubInterface, 
 		return nil, errors.New(errorStr)
 	}
 	fmt.Println("createDispatchOrder() : buffer", buff)
-	err = stub.PutState(dispatchObject.dispatchOrderId, buff)
+	err = stub.PutState(args[0], buff)
 	if err != nil {
 		fmt.Println("initContract() : write error while inserting record\n")
 		return nil, errors.New("initContract() : write error while inserting record : " + err.Error())
