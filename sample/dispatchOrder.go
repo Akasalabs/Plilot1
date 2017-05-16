@@ -150,6 +150,14 @@ func (t *SimpleChaincode) readState(stub shim.ChaincodeStubInterface, args []str
 		return nil, errors.New(jsonResp)
 	}
 	fmt.Println("valAsBytes", valAsbytes)
+
+	obj, err := JSONtoDO(valAsbytes)
+	if err != nil {
+		jsonResp = "{\"Error\":\"Failed to conver into object" + name + "\"}"
+		return nil, errors.New(jsonResp)
+	}
+	fmt.Println("json object trying to convert is", obj)
+
 	return valAsbytes, nil
 }
 
@@ -260,4 +268,15 @@ func doToJSON(c DispatchOrderObject) ([]byte, error) {
 	}
 	fmt.Println("dispatch object as bytes ", cjson)
 	return cjson, nil
+}
+
+func JSONtoDO(data []byte) (DispatchOrderObject, error) {
+
+	do := DispatchOrderObject{}
+	err := json.Unmarshal([]byte(data), &do)
+	if err != nil {
+		fmt.Println("Unmarshal failed : ", err)
+	}
+
+	return do, err
 }
