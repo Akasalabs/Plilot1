@@ -235,7 +235,7 @@ func (t *SimpleChaincode) updateDispatchOrder(stub shim.ChaincodeStubInterface, 
 	}
 	fmt.Println(dat)
 
-	updatedDispatchOrder := DispatchOrderObject{dat["DispatchorderID"].(string), args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14], args[15], args[16], args[17], args[18], args[19], args[20], args[21], args[22], args[23], args[24], args[25], args[26], args[27], args[28], args[29], args[30], time.Now().Format("20060102150405")}
+	updatedDispatchOrder := DispatchOrderObject{dat["DispatchorderID"], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14], args[15], args[16], args[17], args[18], args[19], args[20], args[21], args[22], args[23], args[24], args[25], args[26], args[27], args[28], args[29], args[30], time.Now().Format("20060102150405")}
 
 	buff, err := doToJSON(updatedDispatchOrder)
 	if err != nil {
@@ -243,7 +243,7 @@ func (t *SimpleChaincode) updateDispatchOrder(stub shim.ChaincodeStubInterface, 
 		fmt.Println(errorStr)
 		return nil, errors.New(errorStr)
 	}
-	err = stub.PutState(dat["DispatchOrderID"].(string), buff)
+	err = stub.PutState(dat["DispatchOrderID"], buff)
 	if err != nil {
 		fmt.Println("updateDispatchOrder() : write error while inserting record\n")
 		return nil, errors.New("updateDispatchOrder() : write error while inserting record : " + err.Error())
@@ -349,9 +349,9 @@ func doToJSON(c DispatchOrderObject) ([]byte, error) {
 }
 
 // JSON To args[] - return a map of the JSON string
-func JSONtoArgs(Avalbytes []byte) (map[string]interface{}, error) {
+func JSONtoArgs(Avalbytes []byte) (map[string]string, error) {
 
-	var data map[string]interface{}
+	var data map[string]string
 
 	if err := json.Unmarshal(Avalbytes, &data); err != nil {
 		return nil, err
