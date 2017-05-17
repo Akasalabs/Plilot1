@@ -597,8 +597,8 @@ func (t *SimpleChaincode) sample(stub shim.ChaincodeStubInterface, args []string
 	array := args[0]
 
 	fmt.Println("array is ", array)
-	fmt.Println("array[1] is ", array[1])
-	fmt.Println("array[2] is ", array[2])
+	fmt.Println("array[1] is ", string(array[1]))
+	fmt.Println("array[2] is ", string(array[2]))
 	fmt.Println("array[3] is ", array[3])
 	fmt.Println("array[4] is ", array[4])
 
