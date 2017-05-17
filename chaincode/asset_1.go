@@ -244,7 +244,7 @@ func (t *SimpleChaincode) updateDispatchOrder(stub shim.ChaincodeStubInterface, 
 		fmt.Println(errorStr)
 		return nil, errors.New(errorStr)
 	}
-	err = stub.PutState(dat["DispatchOrderID"], buff)
+	err = stub.PutState(dat["dispatchOrderId"], buff)
 	if err != nil {
 		fmt.Println("updateDispatchOrder() : write error while inserting record\n")
 		return nil, errors.New("updateDispatchOrder() : write error while inserting record : " + err.Error())
