@@ -173,8 +173,8 @@ func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function strin
 		return t.read(stub, args)
 	} else if function == "getAssets" { //read a contract
 		return t.getAssets(stub, args)
-	} else if function == "getDispatchOrders" { //read a contract
-		return t.getDispatchOrders(stub, args)
+	} else if function == "getAllDispatchOrdersLatest" { //read a contract
+		return t.getAllDispatchOrdersLatest(stub, args)
 	}
 	fmt.Println("query did not find func: " + function) //error
 	return nil, errors.New("Received unknown function query " + function)
@@ -322,8 +322,10 @@ func (t *SimpleChaincode) getAllKeys(stub shim.ChaincodeStubInterface, args []st
 	return jsonKeys, nil
 }
 
-func (t *SimpleChaincode) getDispatchOrders(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+func (t *SimpleChaincode) getAllDispatchOrdersLatest(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
+	var jsonResp string
+	var valAsBytes []byte
 	startKey := "1A"
 	endKey := "Z*"
 
@@ -344,14 +346,16 @@ func (t *SimpleChaincode) getDispatchOrders(stub shim.ChaincodeStubInterface, ar
 
 	for key, value := range keys {
 		fmt.Printf("key %d contains %s\n", key, value)
+		valueAsbytes, err := stub.GetState(value)
+		if err != nil {
+			jsonResp = "{\"Error\":\"Failed to get state for " + value + "\"}"
+			return nil, errors.New(jsonResp)
+		}
+		fmt.Println("read contract output ", valueAsbytes)
+		valAsBytes = append(valAsBytes, valueAsbytes...)
 	}
-
-	jsonKeys, err := json.Marshal(keys)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("keys operation failed. Error accessing state: %s", err))
-	}
-
-	return jsonKeys, nil
+	fmt.Println("read all keys output ", valAsBytes)
+	return valAsBytes, nil
 }
 
 // CreateContractObject creates an contract
