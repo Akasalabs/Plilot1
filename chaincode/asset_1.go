@@ -33,7 +33,7 @@ const STATE_DROPPED = 7
 // DispatchOrderObject struct
 type DispatchOrderObject struct {
 	DispatchOrderID                string `json:"dispatchOrderId"`
-	Stage                          int    `json:"stage"`
+	Stage                          string `json:"stage"`
 	Customer                       string `json:"customer"`
 	Transporter                    string `json:"transporter"`
 	Seller                         string `json:"seller"`
@@ -152,6 +152,8 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 
 	if function == "createDispatchOrder" {
 		return t.createDispatchOrder(stub, args)
+	} else if function == "updateDispatchOrder" {
+		return t.updateDispatchOrder(stub, args)
 	}
 	fmt.Println("invoke did not find func: " + function) //error
 	return nil, errors.New("Received unknown function invocation: " + function)
@@ -209,6 +211,51 @@ func (t *SimpleChaincode) createDispatchOrder(stub shim.ChaincodeStubInterface, 
 
 	// make an entry into transaction history table
 
+	return nil, nil
+}
+
+// read function return value
+func (t *SimpleChaincode) updateDispatchOrder(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	var jsonResp string
+	var err error
+
+	if len(args) != 31 {
+		return nil, errors.New("Incorrect number of arguments. Expecting 3 args")
+	}
+
+	dispatchorderID := args[0]
+	dispatchOrderAsbytes, err := stub.GetState(dispatchorderID)
+	if err != nil {
+		jsonResp = "{\"Error\":\"Failed to get state for " + dispatchorderID + "\"}"
+		return nil, errors.New(jsonResp)
+	}
+	dat, err := JSONtoArgs(dispatchOrderAsbytes)
+	if err != nil {
+		return nil, errors.New("unable to convert jsonToArgs for" + dispatchorderID)
+	}
+	fmt.Println(dat)
+
+	updatedDispatchOrder := DispatchOrderObject{dat["DispatchorderID"].(string), args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14], args[15], args[16], args[17], args[18], args[19], args[20], args[21], args[22], args[23], args[24], args[25], args[26], args[27], args[28], args[29], args[30], time.Now().Format("20060102150405")}
+
+	buff, err := doToJSON(updatedDispatchOrder)
+	if err != nil {
+		errorStr := "updateDispatchOrder() : Failed Cannot create object buffer for write : " + args[0]
+		fmt.Println(errorStr)
+		return nil, errors.New(errorStr)
+	}
+	err = stub.PutState(dat["DispatchOrderID"].(string), buff)
+	if err != nil {
+		fmt.Println("updateDispatchOrder() : write error while inserting record\n")
+		return nil, errors.New("updateDispatchOrder() : write error while inserting record : " + err.Error())
+	}
+
+	// make an entry into transaction history table
+	//keys := []string{updatedContract.Contractid, strconv.Itoa(updatedContract.Stage), time.Now().Format("2006-01-02 15:04:05")}
+	//err = UpdateLedger(stub, "TransactionHistory", keys, buff)
+	//if err != nil {
+	//	fmt.Println("initContract() : write error while inserting record\n")
+	//	return buff, err
+	//}
 	return nil, nil
 }
 
@@ -281,7 +328,7 @@ func createDispatchOrderObject(args []string) (DispatchOrderObject, error) {
 	}
 
 	//check whether the dispatch order already exists
-	myDispatchOrder = DispatchOrderObject{args[0], STATE_OBD_REQUEST_CREATED, args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14], args[15], args[16], args[17], args[18], args[19], args[20], args[21], args[22], args[23], args[24], args[25], args[26], args[27], args[28], args[29], args[30], time.Now().Format("20060102150405")}
+	myDispatchOrder = DispatchOrderObject{args[0], strconv.Itoa(STATE_OBD_REQUEST_CREATED), args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14], args[15], args[16], args[17], args[18], args[19], args[20], args[21], args[22], args[23], args[24], args[25], args[26], args[27], args[28], args[29], args[30], time.Now().Format("20060102150405")}
 	if err != nil {
 		fmt.Println(err)
 		return myDispatchOrder, err
@@ -299,4 +346,16 @@ func doToJSON(c DispatchOrderObject) ([]byte, error) {
 	}
 	fmt.Println("dispatch object as bytes ", cjson)
 	return cjson, nil
+}
+
+// JSON To args[] - return a map of the JSON string
+func JSONtoArgs(Avalbytes []byte) (map[string]interface{}, error) {
+
+	var data map[string]interface{}
+
+	if err := json.Unmarshal(Avalbytes, &data); err != nil {
+		return nil, err
+	}
+
+	return data, nil
 }
