@@ -67,9 +67,15 @@ type DispatchOrderObject struct {
 }
 
 type AssetObject struct {
-	AssetID string `json:"assetId"`
-	PartNo  string `json:"partNo"`
-	Owner   string `json:"owner"`
+	AssetID            string `json:"assetId"`
+	PartNumber         string `json:"partNumber"`
+	PartDescription    string `json:"partDescription"`
+	Owner              string `json:"owner"`
+	Stage              string `json:"stage"`
+	BatchNumer         string `json:"batchNumer"`
+	ManufactureDate    string `json:"manufactureDate"`
+	Itchs              string `json:"itchs"`
+	ExciseChaperNumber string `json:"exciseChaperNumber"`
 }
 
 var tables = []string{"AssetTable", "TransactionHistory", "DocumentTable"}
@@ -77,7 +83,7 @@ var tables = []string{"AssetTable", "TransactionHistory", "DocumentTable"}
 // GetNumberOfKeys - Gets the number of keys for the table
 func GetNumberOfKeys(tname string) int {
 	TableMap := map[string]int{
-		"AssetTable":         2,
+		"AssetTable":         3,
 		"TransactionHistory": 3,
 		"DocumentTable":      2,
 	}
@@ -157,6 +163,8 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 		return t.updateDispatchOrder(stub, args)
 	} else if function == "createAsset" {
 		return t.invokeAsset(stub, args)
+	} else if function == "sample" {
+		return t.sample(stub, args)
 	}
 	fmt.Println("invoke did not find func: " + function) //error
 	return nil, errors.New("Received unknown function invocation: " + function)
@@ -256,8 +264,9 @@ func (t *SimpleChaincode) updateDispatchOrder(stub shim.ChaincodeStubInterface, 
 		return nil, errors.New("updateDispatchOrder() : write error while inserting record : " + err.Error())
 	}
 
-	// make an entry into transaction history table
-	//keys := []string{updatedContract.Contractid, strconv.Itoa(updatedContract.Stage), time.Now().Format("2006-01-02 15:04:05")}
+	//make an entry into  history table
+
+	// keys := []string{updatedContract.Contractid, strconv.Itoa(updatedContract.Stage), time.Now().Format("2006-01-02 15:04:05")}
 	//err = UpdateLedger(stub, "TransactionHistory", keys, buff)
 	//if err != nil {
 	//	fmt.Println("initContract() : write error while inserting record\n")
@@ -355,10 +364,9 @@ func (t *SimpleChaincode) getAllDispatchOrdersLatest(stub shim.ChaincodeStubInte
 		valAsBytes = append(valAsBytes, valueAsbytes...)
 	}
 	fmt.Println("read all keys output ", valAsBytes)
-	jsonRows, _ := json.Marshal(valAsBytes)
 
 	//fmt.Println("List of Open Auctions : ", jsonRows)
-	return jsonRows, nil
+	return valAsBytes, nil
 }
 
 // CreateContractObject creates an contract
@@ -424,7 +432,7 @@ func (t *SimpleChaincode) invokeAsset(stub shim.ChaincodeStubInterface, args []s
 		return nil, errors.New("invokeAsset(): Failed Cannot create object buffer for write : " + args[0])
 	} else {
 		// Update the table with the Buffer Data
-		keys := []string{"asset", assetObject.Owner}
+		keys := []string{"asset", assetObject.Owner, assetObject.Stage}
 		err = UpdateLedger(stub, "AssetTable", keys, buff)
 		if err != nil {
 			fmt.Println("invokeAsset() : write error while inserting record\n")
@@ -441,9 +449,9 @@ func CreateAssetObject(args []string) (AssetObject, error) {
 	var myAsset AssetObject
 
 	// Check there are 3 Arguments provided as per the the struct
-	if len(args) != 3 {
-		fmt.Println("CreateAssetObject(): Incorrect number of arguments. Expecting 3 ")
-		return myAsset, errors.New("CreateAssetObject(): Incorrect number of arguments. Expecting 3 ")
+	if len(args) != 9 {
+		fmt.Println("CreateAssetObject(): Incorrect number of arguments. Expecting 9 ")
+		return myAsset, errors.New("CreateAssetObject(): Incorrect number of arguments. Expecting 9 ")
 	}
 
 	// Validate Serialno is an integer
@@ -454,8 +462,7 @@ func CreateAssetObject(args []string) (AssetObject, error) {
 		return myAsset, errors.New("CreateAssetbject(): SerialNo should be an integer create failed. ")
 	}*/
 
-	myAsset = AssetObject{args[0], args[1], args[2]}
-	fmt.Println("CreateAssetObject(): Asset Object created: ", myAsset.AssetID, myAsset.PartNo, myAsset.Owner)
+	myAsset = AssetObject{args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8]}
 	return myAsset, nil
 }
 
@@ -580,4 +587,14 @@ func JSONtoAR(data []byte) (AssetObject, error) {
 	}
 
 	return ar, err
+}
+
+func (t *SimpleChaincode) sample(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+
+	// s := make([]string, 20, 20)
+	// var array []string
+
+	array := args[0]
+	fmt.Println("array is ", array)
+	return []byte("ok"), nil
 }
