@@ -30,19 +30,45 @@ const STATE_SHIPMENT_DELIVERED = 5
 const STATE_AMENDED = 6
 const STATE_DROPPED = 7
 
-const SELLER = "seller"
-const TRANSPORTER = "transporter"
-const BUYER = "lease_company"
-
+// DispatchOrderObject struct
 type DispatchOrderObject struct {
-	dispatchOrderId string
-	stage           string
-	customer        string
-	timeStamp       string // This is the time stamp
+	DispatchOrderID                string `json:"dispatchOrderId"`
+	Stage                          int    `json:"stage"`
+	Customer                       string `json:"customer"`
+	Transporter                    string `json:"transporter"`
+	Seller                         string `json:"seller"`
+	AssetIDs                       string `json:"assetIDs"`
+	AsnNumber                      string `json:"asnNumber"`
+	Source                         string `json:"source"`
+	ShipmentType                   string `json:"shipmentType"`
+	ContractType                   string `json:"contractType"`
+	DeliveryTerm                   string `json:"deliveryTerm"`
+	DispatchDate                   string `json:"dispatchDate"`
+	TransporterRef                 string `json:"transporterRef"`
+	LoadingType                    string `json:"loadingType"`
+	VehicleType                    string `json:"vehicleType"`
+	Weight                         string `json:"weight"`
+	Consignment                    string `json:"consignment"`
+	Quantity                       string `json:"quantity"`
+	PartNumber                     string `json:"partNumber"`
+	PartName                       string `json:"partName"`
+	OrderRefNum                    string `json:"orderRefNum"`
+	CreatedOn                      string `json:"createdOn"`
+	DocumentID1                    string `json:"documentID1"`
+	DocumentID2                    string `json:"documentID2"`
+	DocumentID3                    string `json:"documentID3"`
+	DocumentID4                    string `json:"documentID4"`
+	DropDescription                string `json:"dropDescription"`
+	Deliverydescription            string `json:"deliverydescription"`
+	InTransitDisptachOfficerSigned string `json:"inTransitDisptachOfficerSigned"`
+	InTransitTransporterSigned     string `json:"inTransitTransporterSigned"`
+	TransactionDescription         string `json:"transactionDescription"`
+	TimeStamp                      string `json:"timeStamp"`
 }
 
 var tables = []string{"AssetTable", "TransactionHistory", "DocumentTable"}
 
+// GetNumberOfKeys - Gets the number of keys for the table
 func GetNumberOfKeys(tname string) int {
 	TableMap := map[string]int{
 		"AssetTable":         2,
@@ -59,7 +85,7 @@ func main() {
 	}
 }
 
-// Init initializes the chain and two tables - one for asset and other for transaction history
+// Init initializes the chain and three tables - one for asset,one for transaction history and other for documents
 func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
 
 	fmt.Println("Application Init")
@@ -85,6 +111,7 @@ func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface, function string
 	return []byte("Init(): Initialization Complete"), nil
 }
 
+// InitLedger - Initializes the tables
 func InitLedger(stub shim.ChaincodeStubInterface, tableName string) error {
 
 	// Generic Table Creation Function - requires Table Name and Table Key Entry
@@ -127,7 +154,6 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 		return t.createDispatchOrder(stub, args)
 	}
 	fmt.Println("invoke did not find func: " + function) //error
-
 	return nil, errors.New("Received unknown function invocation: " + function)
 }
 
@@ -150,21 +176,21 @@ func (t *SimpleChaincode) createDispatchOrder(stub shim.ChaincodeStubInterface, 
 	var err error
 
 	//convert the arguments into an Diapatch order Object
-	dispatchObject, err := CreateDispatchOrderObject(args[0:])
+	dispatchObject, err := createDispatchOrderObject(args[0:])
 	if err != nil {
 		fmt.Println("createDispatchOrder(): Cannot create dispatch object ")
 		return nil, errors.New("createDispatchOrder(): Cannot create dipatch object")
 	}
 
 	// check if the DispatchOrder already exists
-	contractAsBytes, err := stub.GetState(dispatchObject.dispatchOrderId)
+	contractAsBytes, err := stub.GetState(dispatchObject.DispatchOrderID)
 	if err != nil {
 		fmt.Println("createDispatchOrder() : failed to get contract")
 		return nil, errors.New("Failed to get dispatchOrder")
 	}
 	if contractAsBytes != nil {
-		fmt.Println("initContract() : contract already exists for ", dispatchObject.dispatchOrderId)
-		jsonResp := "{\"Error\":\"Failed - contract already exists " + dispatchObject.dispatchOrderId + "\"}"
+		fmt.Println("initContract() : contract already exists for ", dispatchObject.DispatchOrderID)
+		jsonResp := "{\"Error\":\"Failed - contract already exists " + dispatchObject.DispatchOrderID + "\"}"
 		return nil, errors.New(jsonResp)
 	}
 
@@ -184,30 +210,6 @@ func (t *SimpleChaincode) createDispatchOrder(stub shim.ChaincodeStubInterface, 
 	// make an entry into transaction history table
 
 	return nil, nil
-}
-
-// read function return value
-func (t *SimpleChaincode) readContract(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
-	var name, jsonResp string
-	var err error
-
-	if len(args) != 1 {
-		return nil, errors.New("Incorrect number of arguments. Expecting name of the var to query")
-	}
-
-	name = args[0]
-	fmt.Println("document id to be queried is " + name)
-	valAsbytes, err := stub.GetState(name)
-	if err != nil {
-		jsonResp = "{\"Error\":\"Failed to get state for " + name + "\"}"
-		return nil, errors.New(jsonResp)
-	}
-	if valAsbytes == nil {
-		jsonResp = "{\"null object\":\"in ledger for key " + name + "\"}"
-		return nil, errors.New(jsonResp)
-	}
-	fmt.Println("read contract output ", valAsbytes)
-	return valAsbytes, nil
 }
 
 // read - query function to read key/value pair
@@ -267,24 +269,24 @@ func (t *SimpleChaincode) getAllKeys(stub shim.ChaincodeStubInterface, args []st
 }
 
 // CreateContractObject creates an contract
-func CreateDispatchOrderObject(args []string) (DispatchOrderObject, error) {
+func createDispatchOrderObject(args []string) (DispatchOrderObject, error) {
 	// S001 LHTMO bosch
 	var err error
 	var myDispatchOrder DispatchOrderObject
 
 	// Check there are 31 Arguments provided as per the the struct, time is computed
-	if len(args) != 3 {
+	if len(args) != 31 {
 		fmt.Println("CreateDispatchOrderObject(): Incorrect number of arguments. Expecting 31 ")
 		return myDispatchOrder, errors.New("CreateDispatchOrderObject(): Incorrect number of arguments. Expecting 31 ")
 	}
 
 	//check whether the dispatch order already exists
-	myDispatchOrder = DispatchOrderObject{args[0], strconv.Itoa(STATE_OBD_REQUEST_CREATED), args[2], time.Now().Format("20060102150405")}
+	myDispatchOrder = DispatchOrderObject{args[0], STATE_OBD_REQUEST_CREATED, args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14], args[15], args[16], args[17], args[18], args[19], args[20], args[21], args[22], args[23], args[24], args[25], args[26], args[27], args[28], args[29], args[30], time.Now().Format("20060102150405")}
 	if err != nil {
 		fmt.Println(err)
 		return myDispatchOrder, err
 	}
-	fmt.Println("CreateDispatchOrderObject(): dispatch Object created: ", myDispatchOrder.dispatchOrderId, myDispatchOrder.stage, myDispatchOrder.customer, myDispatchOrder.timeStamp)
+	fmt.Println("CreateDispatchOrderObject(): dispatch Object created: ", myDispatchOrder)
 	return myDispatchOrder, nil
 }
 
