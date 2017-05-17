@@ -66,6 +66,12 @@ type DispatchOrderObject struct {
 	TimeStamp                      string `json:"timeStamp"`
 }
 
+type AssetObject struct {
+	AssetID string `json:"assetId"`
+	PartNo  string `json:"partNo"`
+	Owner   string `json:"owner"`
+}
+
 var tables = []string{"AssetTable", "TransactionHistory", "DocumentTable"}
 
 // GetNumberOfKeys - Gets the number of keys for the table
@@ -100,11 +106,6 @@ func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface, function string
 		if err != nil {
 			return nil, fmt.Errorf("Init(): InitLedger of %s  Failed ", val)
 		}
-	}
-
-	err = stub.PutState("_dispatchOrderindex", []byte(dispatchOrderIndexstr))
-	if err != nil {
-		return nil, err
 	}
 
 	fmt.Println("Init() Initialization Complete  : ", args)
@@ -154,6 +155,8 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 		return t.createDispatchOrder(stub, args)
 	} else if function == "updateDispatchOrder" {
 		return t.updateDispatchOrder(stub, args)
+	} else if function == "createAsset" {
+		return t.invokeAsset(stub, args)
 	}
 	fmt.Println("invoke did not find func: " + function) //error
 	return nil, errors.New("Received unknown function invocation: " + function)
@@ -168,8 +171,11 @@ func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function strin
 		return t.getAllKeys(stub, args)
 	} else if function == "read" { //read a contract
 		return t.read(stub, args)
+	} else if function == "getAssets" { //read a contract
+		return t.getAssets(stub, args)
+	} else if function == "getDispatchOrders" { //read a contract
+		return t.getDispatchOrders(stub, args)
 	}
-
 	fmt.Println("query did not find func: " + function) //error
 	return nil, errors.New("Received unknown function query " + function)
 }
@@ -316,6 +322,38 @@ func (t *SimpleChaincode) getAllKeys(stub shim.ChaincodeStubInterface, args []st
 	return jsonKeys, nil
 }
 
+func (t *SimpleChaincode) getDispatchOrders(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+
+	startKey := "1A"
+	endKey := "Z*"
+
+	keysIter, err := stub.RangeQueryState(startKey, endKey)
+
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("keys operation failed. Error accessing state: %s", err))
+	}
+	defer keysIter.Close()
+	var keys []string
+	for keysIter.HasNext() {
+		response, _, iterErr := keysIter.Next()
+		if iterErr != nil {
+			return nil, errors.New(fmt.Sprintf("keys operation failed. Error accessing state: %s", err))
+		}
+		keys = append(keys, response)
+	}
+
+	for key, value := range keys {
+		fmt.Printf("key %d contains %s\n", key, value)
+	}
+
+	jsonKeys, err := json.Marshal(keys)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("keys operation failed. Error accessing state: %s", err))
+	}
+
+	return jsonKeys, nil
+}
+
 // CreateContractObject creates an contract
 func createDispatchOrderObject(args []string) (DispatchOrderObject, error) {
 	// S001 LHTMO bosch
@@ -359,4 +397,180 @@ func JSONtoArgs(Avalbytes []byte) (map[string]string, error) {
 	}
 
 	return data, nil
+}
+
+// invokes an asset into the table
+func (t *SimpleChaincode) invokeAsset(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	assetObject, err := CreateAssetObject(args[0:])
+	if err != nil {
+		fmt.Println("invokeAsset(): Cannot create item object \n")
+		return nil, err
+	}
+
+	/*// Check if the Owner ID specified is registered and valid */
+	// Convert Item Object to JSON
+	fmt.Println("assetObject is", assetObject)
+	buff, err := ARtoJSON(assetObject)
+	fmt.Println("buff is ", buff)
+	if err != nil {
+		fmt.Println("invokeAsset() : Failed Cannot create object buffer for write : ", args[0])
+		return nil, errors.New("invokeAsset(): Failed Cannot create object buffer for write : " + args[0])
+	} else {
+		// Update the table with the Buffer Data
+		keys := []string{"asset", assetObject.Owner}
+		err = UpdateLedger(stub, "AssetTable", keys, buff)
+		if err != nil {
+			fmt.Println("invokeAsset() : write error while inserting record\n")
+			return buff, err
+		}
+		return nil, nil
+	}
+}
+
+// CreateAssetObject creates an asset
+func CreateAssetObject(args []string) (AssetObject, error) {
+	// S001 LHTMO bosch
+	// var err error to be
+	var myAsset AssetObject
+
+	// Check there are 3 Arguments provided as per the the struct
+	if len(args) != 3 {
+		fmt.Println("CreateAssetObject(): Incorrect number of arguments. Expecting 3 ")
+		return myAsset, errors.New("CreateAssetObject(): Incorrect number of arguments. Expecting 3 ")
+	}
+
+	// Validate Serialno is an integer
+
+	/*_, err = strconv.Atoi(args[0])
+	if err != nil {
+		fmt.Println("CreateAssetObject(): SerialNo should be an integer create failed! ")
+		return myAsset, errors.New("CreateAssetbject(): SerialNo should be an integer create failed. ")
+	}*/
+
+	myAsset = AssetObject{args[0], args[1], args[2]}
+	fmt.Println("CreateAssetObject(): Asset Object created: ", myAsset.AssetID, myAsset.PartNo, myAsset.Owner)
+	return myAsset, nil
+}
+
+func ARtoJSON(ast AssetObject) ([]byte, error) {
+
+	ajson, err := json.Marshal(ast)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	return ajson, nil
+}
+
+func UpdateLedger(stub shim.ChaincodeStubInterface, tableName string, keys []string, args []byte) error {
+
+	fmt.Println("buffer is ", args)
+	fmt.Println("keys is ", keys)
+
+	nKeys := GetNumberOfKeys(tableName)
+	if nKeys < 1 {
+		fmt.Println("Atleast 1 Key must be provided \n")
+	}
+
+	var columns []*shim.Column
+
+	for i := 0; i < nKeys; i++ {
+		col := shim.Column{Value: &shim.Column_String_{String_: keys[i]}}
+		columns = append(columns, &col)
+	}
+
+	lastCol := shim.Column{Value: &shim.Column_Bytes{Bytes: []byte(args)}}
+	columns = append(columns, &lastCol)
+
+	row := shim.Row{columns}
+	fmt.Println("appending row is", row)
+	ok, err := stub.InsertRow(tableName, row)
+	if err != nil {
+		return fmt.Errorf("UpdateLedger: InsertRow into "+tableName+" Table operation failed. %s", err)
+	}
+	if !ok {
+		return errors.New("UpdateLedger: InsertRow into " + tableName + " Table failed. Row with given key " + keys[0] + " already exists")
+	}
+
+	fmt.Println("UpdateLedger: InsertRow into ", tableName, " Table operation Successful. ")
+	return nil
+}
+
+func (t *SimpleChaincode) getAssets(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+
+	rows, err := GetList(stub, "AssetTable", args)
+	if err != nil {
+		return nil, fmt.Errorf("GetAssets() operation failed. Error marshaling JSON: %s", err)
+	}
+
+	nCol := GetNumberOfKeys("AssetTable")
+
+	tlist := make([]AssetObject, len(rows))
+	for i := 0; i < len(rows); i++ {
+		ts := rows[i].Columns[nCol].GetBytes()
+		ar, err := JSONtoAR(ts)
+		if err != nil {
+			fmt.Println("GetAssets() Failed : Ummarshall error")
+			return nil, fmt.Errorf("GetAssets() operation failed. %s", err)
+		}
+		tlist[i] = ar
+	}
+
+	jsonRows, _ := json.Marshal(tlist)
+
+	//fmt.Println("List of Open Auctions : ", jsonRows)
+	return jsonRows, nil
+
+}
+
+func GetList(stub shim.ChaincodeStubInterface, tableName string, args []string) ([]shim.Row, error) {
+	var columns []shim.Column
+
+	nKeys := GetNumberOfKeys(tableName)
+	nCol := len(args)
+	if nCol < 1 {
+		fmt.Println("Atleast 1 Key must be provided \n")
+		return nil, errors.New("GetList failed. Must include at least key values")
+	}
+
+	for i := 0; i < nCol; i++ {
+		colNext := shim.Column{Value: &shim.Column_String_{String_: args[i]}}
+		columns = append(columns, colNext)
+	}
+
+	rowChannel, err := stub.GetRows(tableName, columns)
+	if err != nil {
+		return nil, fmt.Errorf("GetList operation failed. %s", err)
+	}
+	var rows []shim.Row
+	for {
+		select {
+		case row, ok := <-rowChannel:
+			if !ok {
+				rowChannel = nil
+			} else {
+				rows = append(rows, row)
+				//If required enable for debugging
+				//fmt.Println(row)
+			}
+		}
+		if rowChannel == nil {
+			break
+		}
+	}
+
+	fmt.Println("Number of Keys retrieved : ", nKeys)
+	fmt.Println("Number of rows retrieved : ", len(rows))
+	return rows, nil
+}
+
+func JSONtoAR(data []byte) (AssetObject, error) {
+
+	ar := AssetObject{}
+	err := json.Unmarshal([]byte(data), &ar)
+	if err != nil {
+		fmt.Println("Unmarshal failed : ", err)
+	}
+
+	return ar, err
 }
