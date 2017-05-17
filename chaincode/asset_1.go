@@ -355,7 +355,10 @@ func (t *SimpleChaincode) getAllDispatchOrdersLatest(stub shim.ChaincodeStubInte
 		valAsBytes = append(valAsBytes, valueAsbytes...)
 	}
 	fmt.Println("read all keys output ", valAsBytes)
-	return valAsBytes, nil
+	jsonRows, _ := json.Marshal(valAsBytes)
+
+	//fmt.Println("List of Open Auctions : ", jsonRows)
+	return jsonRows, nil
 }
 
 // CreateContractObject creates an contract
