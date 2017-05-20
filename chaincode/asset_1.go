@@ -685,12 +685,12 @@ func JSONtoDOC(data []byte) (DocumentObject, error) {
 
 func (t *SimpleChaincode) getDocuments(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
-	rows, err := GetList(stub, "DocumentsTable", args)
+	rows, err := GetList(stub, "DocumentTable", args)
 	if err != nil {
 		return nil, fmt.Errorf("getDocuments() operation failed. Error marshaling JSON: %s", err)
 	}
 
-	nCol := GetNumberOfKeys("DocumentsTable")
+	nCol := GetNumberOfKeys("DocumentTable")
 
 	tlist := make([]DocumentObject, len(rows))
 	for i := 0; i < len(rows); i++ {
