@@ -636,7 +636,7 @@ func (t *SimpleChaincode) invokeDocument(stub shim.ChaincodeStubInterface, args 
 	} else {
 		// Update the table with the Buffer Data
 		keys := []string{"document", documentObject.DocumentID}
-		err = UpdateLedger(stub, "documentTable", keys, buff)
+		err = UpdateLedger(stub, "DocumentTable", keys, buff)
 		if err != nil {
 			fmt.Println("invokeDocument() : write error while inserting record")
 			return buff, err
