@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	//"strconv"
 	"encoding/json"
 	"time"
@@ -76,6 +77,14 @@ type AssetObject struct {
 	ManufactureDate    string `json:"manufactureDate"`
 	Itchs              string `json:"itchs"`
 	ExciseChaperNumber string `json:"exciseChaperNumber"`
+}
+
+type DocumentObject struct {
+	DocumentID     string `json:"documentId"`
+	DocumentName   string `json:"documentName"`
+	DocumentType   string `json:"documentType"`
+	DocumentString string `json:"documentString"`
+	CreatedON      string `json:"createdOn"`
 }
 
 var tables = []string{"AssetTable", "TransactionHistory", "DocumentTable"}
@@ -165,6 +174,8 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 		return t.invokeAsset(stub, args)
 	} else if function == "sample" {
 		return t.sample(stub, args)
+	} else if function == "createDocument" {
+		return t.invokeDocument(stub, args)
 	}
 	fmt.Println("invoke did not find func: " + function) //error
 	return nil, errors.New("Received unknown function invocation: " + function)
@@ -183,6 +194,8 @@ func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function strin
 		return t.getAssets(stub, args)
 	} else if function == "getAllDispatchOrdersLatest" { //read a contract
 		return t.getAllDispatchOrdersLatest(stub, args)
+	} else if function == "getDocuments" { //read a contract
+		return t.getDocuments(stub, args)
 	}
 	fmt.Println("query did not find func: " + function) //error
 	return nil, errors.New("Received unknown function query " + function)
@@ -594,13 +607,105 @@ func (t *SimpleChaincode) sample(stub shim.ChaincodeStubInterface, args []string
 	// s := make([]string, 20, 20)
 	// var array []string
 
-	array := args[0]
-
-	fmt.Println("array is ", array)
-	fmt.Println("array[1] is ", string(array[1]))
-	fmt.Println("array[2] is ", string(array[2]))
-	fmt.Println("array[3] is ", array[3])
-	fmt.Println("array[4] is ", array[4])
+	assetIds := args[0]
+	result := strings.Split(assetIds, ",")
+	for i := range result {
+		fmt.Println(result[i])
+	}
+	fmt.Println(len(result))
 
 	return []byte("ok"), nil
+}
+
+// invokes an asset into the table
+func (t *SimpleChaincode) invokeDocument(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	documentObject, err := CreateDocumentObject(args[0:])
+	if err != nil {
+		fmt.Println("invokeDocument(): Cannot create item object \n")
+		return nil, err
+	}
+
+	/*// Check if the Owner ID specified is registered and valid */
+	// Convert Item Object to JSON
+	fmt.Println("documentObject is", documentObject)
+	buff, err := DOCtoJSON(documentObject)
+	fmt.Println("buff is ", buff)
+	if err != nil {
+		fmt.Println("invokeDocument() : Failed Cannot create object buffer for write : ", args[0])
+		return nil, errors.New("invokeDocument(): Failed Cannot create object buffer for write : " + args[0])
+	} else {
+		// Update the table with the Buffer Data
+		keys := []string{"document", documentObject.DocumentID}
+		err = UpdateLedger(stub, "documentTable", keys, buff)
+		if err != nil {
+			fmt.Println("invokeDocument() : write error while inserting record")
+			return buff, err
+		}
+		return nil, nil
+	}
+}
+
+// CreateAssetObject creates an asset
+func CreateDocumentObject(args []string) (DocumentObject, error) {
+	// S001 LHTMO bosch
+	// var err error to be
+	var myDocument DocumentObject
+
+	// Check there are 3 Arguments provided as per the the struct
+	if len(args) != 4 {
+		fmt.Println("CreateDocumentObject(): Incorrect number of arguments. Expecting 4 ")
+		return myDocument, errors.New("CreateDocumentObject(): Incorrect number of arguments. Expecting 4 ")
+	}
+
+	myDocument = DocumentObject{args[0], args[1], args[2], args[3], time.Now().Format("20060102150405")}
+	return myDocument, nil
+}
+
+func DOCtoJSON(doc DocumentObject) ([]byte, error) {
+
+	djson, err := json.Marshal(doc)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	return djson, nil
+}
+
+func JSONtoDOC(data []byte) (DocumentObject, error) {
+
+	doc := DocumentObject{}
+	err := json.Unmarshal([]byte(data), &doc)
+	if err != nil {
+		fmt.Println("Unmarshal failed : ", err)
+		return doc, err
+	}
+
+	return doc, nil
+}
+
+func (t *SimpleChaincode) getDocuments(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+
+	rows, err := GetList(stub, "DocumentsTable", args)
+	if err != nil {
+		return nil, fmt.Errorf("getDocuments() operation failed. Error marshaling JSON: %s", err)
+	}
+
+	nCol := GetNumberOfKeys("DocumentsTable")
+
+	tlist := make([]DocumentObject, len(rows))
+	for i := 0; i < len(rows); i++ {
+		ts := rows[i].Columns[nCol].GetBytes()
+		ar, err := JSONtoDOC(ts)
+		if err != nil {
+			fmt.Println("getDocuments() Failed : Ummarshall error")
+			return nil, fmt.Errorf("getDocuments() operation failed. %s", err)
+		}
+		tlist[i] = ar
+	}
+
+	jsonRows, _ := json.Marshal(tlist)
+
+	//fmt.Println("List of Open Auctions : ", jsonRows)
+	return jsonRows, nil
+
 }
