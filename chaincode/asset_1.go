@@ -101,7 +101,7 @@ var tables = []string{"AssetTable", "TransactionHistory", "DocumentTable"}
 // GetNumberOfKeys - Gets the number of keys for the table
 func GetNumberOfKeys(tname string) int {
 	TableMap := map[string]int{
-		"AssetTable":         3,
+		"AssetTable":         2,
 		"TransactionHistory": 3,
 		"DocumentTable":      2,
 	}
@@ -467,7 +467,7 @@ func (t *SimpleChaincode) invokeAsset(stub shim.ChaincodeStubInterface, args []s
 		return nil, errors.New("invokeAsset(): Failed Cannot create object buffer for write : " + args[0])
 	} else {
 		// Update the table with the Buffer Data
-		keys := []string{"asset", assetObject.AssetID, assetObject.Stage}
+		keys := []string{"asset", assetObject.AssetID}
 		fmt.Println("invokeAsset() keys are :", keys)
 		err = UpdateLedger(stub, "AssetTable", keys, buff)
 		if err != nil {
@@ -591,10 +591,9 @@ func (t *SimpleChaincode) getAssets(stub shim.ChaincodeStubInterface, args []str
 
 	//fmt.Println("List of Open Auctions : ", jsonRows)
 	return jsonRows, nil
-
 }
 
-func getAssetFromTable(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+func getAssetFromTable(stub shim.ChaincodeStubInterface, args []string) ([]AssetObject, error) {
 
 	rows, err := GetList(stub, "AssetTable", args)
 	if err != nil {
@@ -611,15 +610,10 @@ func getAssetFromTable(stub shim.ChaincodeStubInterface, args []string) ([]byte,
 			fmt.Println("GetAssets() Failed : Ummarshall error")
 			return nil, fmt.Errorf("GetAssets() operation failed. %s", err)
 		}
-		fmt.Println("asset object from table is ", ar)
 		tlist[i] = ar
 	}
 
-	jsonRows, _ := json.Marshal(tlist)
-
-	fmt.Println("Asset is : ", jsonRows)
-	return jsonRows, nil
-
+	return tlist, nil
 }
 
 func GetList(stub shim.ChaincodeStubInterface, tableName string, args []string) ([]shim.Row, error) {
