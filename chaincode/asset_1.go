@@ -467,7 +467,7 @@ func (t *SimpleChaincode) invokeAsset(stub shim.ChaincodeStubInterface, args []s
 		return nil, errors.New("invokeAsset(): Failed Cannot create object buffer for write : " + args[0])
 	} else {
 		// Update the table with the Buffer Data
-		keys := []string{"asset", assetObject.AssetID}
+		keys := []string{"asset", assetObject.AssetID, assetObject.Owner}
 		fmt.Println("invokeAsset() keys are :", keys)
 		err = UpdateLedger(stub, "AssetTable", keys, buff)
 		if err != nil {
@@ -487,7 +487,7 @@ func (t *SimpleChaincode) mapAsset(stub shim.ChaincodeStubInterface, args []stri
 	assetIds := args[1]
 	result := strings.Split(assetIds, ",")
 	for i := range result {
-		keys := []string{"asset", result[i], "Open"}
+		keys := []string{"asset", result[i]}
 		fmt.Println(keys)
 		rows, err := getAssetFromTable(stub, keys)
 		if err != nil {
