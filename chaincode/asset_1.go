@@ -611,12 +611,13 @@ func getAssetFromTable(stub shim.ChaincodeStubInterface, args []string) ([]byte,
 			fmt.Println("GetAssets() Failed : Ummarshall error")
 			return nil, fmt.Errorf("GetAssets() operation failed. %s", err)
 		}
+		fmt.Println("asset object from table is ", ar)
 		tlist[i] = ar
 	}
 
 	jsonRows, _ := json.Marshal(tlist)
 
-	//fmt.Println("List of Open Auctions : ", jsonRows)
+	fmt.Println("Asset is : ", jsonRows)
 	return jsonRows, nil
 
 }
