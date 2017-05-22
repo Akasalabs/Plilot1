@@ -245,16 +245,16 @@ func (t *SimpleChaincode) createDispatchOrder(stub shim.ChaincodeStubInterface, 
 		return nil, errors.New("initContract() : write error while inserting record : " + err.Error())
 	}
 
-	// transactionTime := time.Now().Format("2006-01-02 15:04:05")
-	// make an entry into transaction history table
-	//TransactionHistoryObject, err := TransactionHistoryObject{dispatchObject.DispatchOrderID, dispatchObject.Stage, time.Now().Format("2006-01-02 15:04:05"),stub.get}
-	/*if err != nil {
-		fmt.Println("createDispatchOrder(): Cannot create dispatch object ")
-		return nil, errors.New("createDispatchOrder(): Cannot create dipatch object")
+	transactionTime := time.Now().Format("2006-01-02 15:04:05")
+	//make an entry into transaction history table
+	TransactionHistoryObject := TransactionHistoryObject{dispatchObject.DispatchOrderID, dispatchObject.Stage, transactionTime, "user", dispatchObject.TransactionDescription}
+	buffer, err := TRtoJSON(TransactionHistoryObject)
+	if err != nil {
+		fmt.Println("initContract() : Failed to convert transaction history to bytes\n")
+		return nil, errors.New("initContract() : Failed to convert transaction history to bytes : " + err.Error())
 	}
-
-	keys := []string{dispatchObject.DispatchOrderID, dispatchObject.Stage, time.Now().Format("2006-01-02 15:04:05")}
-	err = UpdateLedger(stub, "TransactionHistory", keys, buff)*/
+	keys := []string{"traansaction", dispatchObject.DispatchOrderID, time.Now().Format("2006-01-02 15:04:05")}
+	err = UpdateLedger(stub, "TransactionHistory", keys, buffer)
 	//if err != nil {
 	//	fmt.Println("initContract() : write error while inserting record\n")
 	//	return buff, err
@@ -299,14 +299,16 @@ func (t *SimpleChaincode) updateDispatchOrder(stub shim.ChaincodeStubInterface, 
 		return nil, errors.New("updateDispatchOrder() : write error while inserting record : " + err.Error())
 	}
 
-	//make an entry into  history table
-
-	// keys := []string{updatedContract.Contractid, strconv.Itoa(updatedContract.Stage), time.Now().Format("2006-01-02 15:04:05")}
-	//err = UpdateLedger(stub, "TransactionHistory", keys, buff)
-	//if err != nil {
-	//	fmt.Println("initContract() : write error while inserting record\n")
-	//	return buff, err
-	//}
+	transactionTime := time.Now().Format("2006-01-02 15:04:05")
+	//make an entry into transaction history table
+	TransactionHistoryObject := TransactionHistoryObject{updatedDispatchOrder.DispatchOrderID, updatedDispatchOrder.Stage, transactionTime, "user", updatedDispatchOrder.TransactionDescription}
+	buffer, err := TRtoJSON(TransactionHistoryObject)
+	if err != nil {
+		fmt.Println("updateDispatchOrder() : Failed to convert transaction history to bytes\n")
+		return nil, errors.New("updateDispatchOrder() : Failed to convert transaction history to bytes : " + err.Error())
+	}
+	keys := []string{"traansaction", updatedDispatchOrder.DispatchOrderID, time.Now().Format("2006-01-02 15:04:05")}
+	err = UpdateLedger(stub, "TransactionHistory", keys, buffer)
 	return nil, nil
 }
 
@@ -542,6 +544,16 @@ func CreateAssetObject(args []string) (AssetObject, error) {
 func ARtoJSON(ast AssetObject) ([]byte, error) {
 
 	ajson, err := json.Marshal(ast)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	return ajson, nil
+}
+
+func TRtoJSON(to TransactionHistoryObject) ([]byte, error) {
+
+	ajson, err := json.Marshal(to)
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
