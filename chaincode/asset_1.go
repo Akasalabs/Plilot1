@@ -489,7 +489,7 @@ func (t *SimpleChaincode) mapAsset(stub shim.ChaincodeStubInterface, args []stri
 	for i := range result {
 		keys := []string{"asset", result[i], "Open"}
 		fmt.Println(keys)
-		rows, err := GetList(stub, "AssetTable", keys)
+		rows, err := getAssetFromTable(stub, keys)
 		if err != nil {
 			return nil, fmt.Errorf("GetAssets() operation failed. Error marshaling JSON: %s", err)
 		}
@@ -594,9 +594,37 @@ func (t *SimpleChaincode) getAssets(stub shim.ChaincodeStubInterface, args []str
 
 }
 
+func getAssetFromTable(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+
+	rows, err := GetList(stub, "AssetTable", args)
+	if err != nil {
+		return nil, fmt.Errorf("GetAssets() operation failed. Error marshaling JSON: %s", err)
+	}
+
+	nCol := GetNumberOfKeys("AssetTable")
+
+	tlist := make([]AssetObject, len(rows))
+	for i := 0; i < len(rows); i++ {
+		ts := rows[i].Columns[nCol].GetBytes()
+		ar, err := JSONtoAR(ts)
+		if err != nil {
+			fmt.Println("GetAssets() Failed : Ummarshall error")
+			return nil, fmt.Errorf("GetAssets() operation failed. %s", err)
+		}
+		tlist[i] = ar
+	}
+
+	jsonRows, _ := json.Marshal(tlist)
+
+	//fmt.Println("List of Open Auctions : ", jsonRows)
+	return jsonRows, nil
+
+}
+
 func GetList(stub shim.ChaincodeStubInterface, tableName string, args []string) ([]shim.Row, error) {
 	var columns []shim.Column
 
+	fmt.Println("number of args is", len(args))
 	nKeys := GetNumberOfKeys(tableName)
 	nCol := len(args)
 	if nCol < 1 {
