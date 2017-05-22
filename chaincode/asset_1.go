@@ -255,7 +255,7 @@ func (t *SimpleChaincode) createDispatchOrder(stub shim.ChaincodeStubInterface, 
 		fmt.Println("initContract() : Failed to convert transaction history to bytes\n")
 		return nil, errors.New("initContract() : Failed to convert transaction history to bytes : " + err.Error())
 	}
-	keys := []string{"traansaction", dispatchObject.DispatchOrderID, time.Now().Format("2006-01-02 15:04:05")}
+	keys := []string{"transaction", dispatchObject.DispatchOrderID, time.Now().Format("2006-01-02 15:04:05")}
 	err = UpdateLedger(stub, "TransactionHistory", keys, buffer)
 	//if err != nil {
 	//	fmt.Println("initContract() : write error while inserting record\n")
@@ -309,7 +309,7 @@ func (t *SimpleChaincode) updateDispatchOrder(stub shim.ChaincodeStubInterface, 
 		fmt.Println("updateDispatchOrder() : Failed to convert transaction history to bytes\n")
 		return nil, errors.New("updateDispatchOrder() : Failed to convert transaction history to bytes : " + err.Error())
 	}
-	keys := []string{"traansaction", updatedDispatchOrder.DispatchOrderID, time.Now().Format("2006-01-02 15:04:05")}
+	keys := []string{"transaction", updatedDispatchOrder.DispatchOrderID, time.Now().Format("2006-01-02 15:04:05")}
 	err = UpdateLedger(stub, "TransactionHistory", keys, buffer)
 	return nil, nil
 }
@@ -799,6 +799,18 @@ func JSONtoDOC(data []byte) (DocumentObject, error) {
 	return doc, nil
 }
 
+func JSONtoTX(data []byte) (TransactionHistoryObject, error) {
+
+	tx := TransactionHistoryObject{}
+	err := json.Unmarshal([]byte(data), &tx)
+	if err != nil {
+		fmt.Println("Unmarshal failed : ", err)
+		return tx, err
+	}
+
+	return tx, nil
+}
+
 func (t *SimpleChaincode) getDocuments(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
 	rows, err := GetList(stub, "DocumentTable", args)
@@ -835,10 +847,10 @@ func (t *SimpleChaincode) getHistory(stub shim.ChaincodeStubInterface, args []st
 
 	nCol := GetNumberOfKeys("TransactionHistory")
 
-	tlist := make([]DocumentObject, len(rows))
+	tlist := make([]TransactionHistoryObject, len(rows))
 	for i := 0; i < len(rows); i++ {
 		ts := rows[i].Columns[nCol].GetBytes()
-		ar, err := JSONtoDOC(ts)
+		ar, err := JSONtoTX(ts)
 		if err != nil {
 			fmt.Println("getHistory() Failed : Ummarshall error")
 			return nil, fmt.Errorf("getHistory() operation failed. %s", err)
