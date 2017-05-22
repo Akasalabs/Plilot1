@@ -468,6 +468,7 @@ func (t *SimpleChaincode) invokeAsset(stub shim.ChaincodeStubInterface, args []s
 	} else {
 		// Update the table with the Buffer Data
 		keys := []string{"asset", assetObject.AssetID, assetObject.Stage}
+		fmt.Println("invokeAsset() keys are :", keys)
 		err = UpdateLedger(stub, "AssetTable", keys, buff)
 		if err != nil {
 			fmt.Println("invokeAsset() : write error while inserting record\n")
