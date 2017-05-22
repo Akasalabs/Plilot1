@@ -489,14 +489,29 @@ func (t *SimpleChaincode) mapAsset(stub shim.ChaincodeStubInterface, args []stri
 	for i := range result {
 		keys := []string{"asset", result[i]}
 		fmt.Println(keys)
-		rows, err := getAssetFromTable(stub, keys)
+		assetObjectFromLedger, err := getAssetFromTable(stub, keys)
 		if err != nil {
 			return nil, fmt.Errorf("GetAssets() operation failed. Error marshaling JSON: %s", err)
 		}
-		fmt.Println(rows)
+		assetObjectFromLedger.OrderID = orderID
+		assetObjectFromLedger.Stage = "Mapped"
+		buff, err := ARtoJSON(assetObjectFromLedger)
+		fmt.Println("buff is ", buff)
+		if err != nil {
+			fmt.Println("mapAsset() : Failed Cannot create object buffer for write : ", args[0])
+			return nil, errors.New("mapAsset(): Failed Cannot create object buffer for write : " + args[0])
+		} else {
+			// Update the table with the Buffer Data
+			keys := []string{"asset", assetObjectFromLedger.AssetID, assetObjectFromLedger.Owner}
+			fmt.Println("mapAsset() keys are :", keys)
+			err = UpdateLedger(stub, "AssetTable", keys, buff)
+			if err != nil {
+				fmt.Println("invokeAsset() : write error while inserting record\n")
+				return buff, err
+			}
+		}
 	}
-	fmt.Println(len(result))
-	return []byte("ok"), nil
+	return []byte("Assets Mapped"), nil
 }
 
 // CreateAssetObject creates an asset
@@ -593,27 +608,27 @@ func (t *SimpleChaincode) getAssets(stub shim.ChaincodeStubInterface, args []str
 	return jsonRows, nil
 }
 
-func getAssetFromTable(stub shim.ChaincodeStubInterface, args []string) ([]AssetObject, error) {
+func getAssetFromTable(stub shim.ChaincodeStubInterface, args []string) (AssetObject, error) {
 
 	rows, err := GetList(stub, "AssetTable", args)
 	if err != nil {
-		return nil, fmt.Errorf("GetAssets() operation failed. Error marshaling JSON: %s", err)
+		return AssetObject{}, fmt.Errorf("GetAssets() operation failed. Error marshaling JSON: %s", err)
 	}
 
 	nCol := GetNumberOfKeys("AssetTable")
 
-	tlist := make([]AssetObject, len(rows))
-	for i := 0; i < len(rows); i++ {
-		ts := rows[i].Columns[nCol].GetBytes()
-		ar, err := JSONtoAR(ts)
-		if err != nil {
-			fmt.Println("GetAssets() Failed : Ummarshall error")
-			return nil, fmt.Errorf("GetAssets() operation failed. %s", err)
-		}
-		tlist[i] = ar
+	// tlist := make([]AssetObject, len(rows))
+	//for i := 0; i < len(rows); i++ {
+	ts := rows[0].Columns[nCol].GetBytes()
+	ar, err := JSONtoAR(ts)
+	if err != nil {
+		fmt.Println("GetAssets() Failed : Ummarshall error")
+		return AssetObject{}, fmt.Errorf("GetAssets() operation failed. %s", err)
 	}
+	// tlist[i] = ar
+	//}
 
-	return tlist, nil
+	return ar, nil
 }
 
 func GetList(stub shim.ChaincodeStubInterface, tableName string, args []string) ([]shim.Row, error) {
