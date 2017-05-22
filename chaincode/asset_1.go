@@ -77,6 +77,7 @@ type AssetObject struct {
 	ManufactureDate    string `json:"manufactureDate"`
 	Itchs              string `json:"itchs"`
 	ExciseChaperNumber string `json:"exciseChaperNumber"`
+	OrderID            string `json:"orderId"`
 }
 
 type DocumentObject struct {
@@ -180,8 +181,8 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 		return t.updateDispatchOrder(stub, args)
 	} else if function == "createAsset" {
 		return t.invokeAsset(stub, args)
-	} else if function == "sample" {
-		return t.sample(stub, args)
+	} else if function == "mapAsset" {
+		return t.mapAsset(stub, args)
 	} else if function == "createDocument" {
 		return t.invokeDocument(stub, args)
 	}
@@ -466,7 +467,7 @@ func (t *SimpleChaincode) invokeAsset(stub shim.ChaincodeStubInterface, args []s
 		return nil, errors.New("invokeAsset(): Failed Cannot create object buffer for write : " + args[0])
 	} else {
 		// Update the table with the Buffer Data
-		keys := []string{"asset", assetObject.Owner, assetObject.Stage}
+		keys := []string{"asset", assetObject.AssetID, assetObject.Stage}
 		err = UpdateLedger(stub, "AssetTable", keys, buff)
 		if err != nil {
 			fmt.Println("invokeAsset() : write error while inserting record\n")
@@ -476,6 +477,26 @@ func (t *SimpleChaincode) invokeAsset(stub shim.ChaincodeStubInterface, args []s
 	}
 }
 
+func (t *SimpleChaincode) mapAsset(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+
+	// s := make([]string, 20, 20)
+	// var array []string
+	orderID := args[0]
+	fmt.Println("orderId is" + orderID)
+	assetIds := args[1]
+	result := strings.Split(assetIds, ",")
+	for i := range result {
+		keys := []string{"asset", result[i], "Open"}
+		rows, err := GetList(stub, "AssetTable", keys)
+		if err != nil {
+			return nil, fmt.Errorf("GetAssets() operation failed. Error marshaling JSON: %s", err)
+		}
+		fmt.Println(rows)
+	}
+	fmt.Println(len(result))
+	return []byte("ok"), nil
+}
+
 // CreateAssetObject creates an asset
 func CreateAssetObject(args []string) (AssetObject, error) {
 	// S001 LHTMO bosch
@@ -483,9 +504,9 @@ func CreateAssetObject(args []string) (AssetObject, error) {
 	var myAsset AssetObject
 
 	// Check there are 3 Arguments provided as per the the struct
-	if len(args) != 9 {
-		fmt.Println("CreateAssetObject(): Incorrect number of arguments. Expecting 9 ")
-		return myAsset, errors.New("CreateAssetObject(): Incorrect number of arguments. Expecting 9 ")
+	if len(args) != 10 {
+		fmt.Println("CreateAssetObject(): Incorrect number of arguments. Expecting 10 ")
+		return myAsset, errors.New("CreateAssetObject(): Incorrect number of arguments. Expecting 10 ")
 	}
 
 	// Validate Serialno is an integer
@@ -496,7 +517,7 @@ func CreateAssetObject(args []string) (AssetObject, error) {
 		return myAsset, errors.New("CreateAssetbject(): SerialNo should be an integer create failed. ")
 	}*/
 
-	myAsset = AssetObject{args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8]}
+	myAsset = AssetObject{args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9]}
 	return myAsset, nil
 }
 
@@ -621,21 +642,6 @@ func JSONtoAR(data []byte) (AssetObject, error) {
 	}
 
 	return ar, err
-}
-
-func (t *SimpleChaincode) sample(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
-
-	// s := make([]string, 20, 20)
-	// var array []string
-
-	assetIds := args[0]
-	result := strings.Split(assetIds, ",")
-	for i := range result {
-		fmt.Println(result[i])
-	}
-	fmt.Println(len(result))
-
-	return []byte("ok"), nil
 }
 
 // invokes an asset into the table
