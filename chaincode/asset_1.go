@@ -504,7 +504,8 @@ func (t *SimpleChaincode) mapAsset(stub shim.ChaincodeStubInterface, args []stri
 			// Update the table with the Buffer Data
 			keys := []string{"asset", assetObjectFromLedger.AssetID, assetObjectFromLedger.Owner}
 			fmt.Println("mapAsset() keys are :", keys)
-			err = UpdateLedger(stub, "AssetTable", keys, buff)
+
+			err = ReplaceRowInLedger(stub, "AssetTable", keys, buff)
 			if err != nil {
 				fmt.Println("invokeAsset() : write error while inserting record\n")
 				return buff, err
@@ -571,6 +572,40 @@ func UpdateLedger(stub shim.ChaincodeStubInterface, tableName string, keys []str
 	row := shim.Row{columns}
 	fmt.Println("appending row is", row)
 	ok, err := stub.InsertRow(tableName, row)
+	if err != nil {
+		return fmt.Errorf("UpdateLedger: InsertRow into "+tableName+" Table operation failed. %s", err)
+	}
+	if !ok {
+		return errors.New("UpdateLedger: InsertRow into " + tableName + " Table failed. Row with given key " + keys[0] + " already exists")
+	}
+
+	fmt.Println("UpdateLedger: InsertRow into ", tableName, " Table operation Successful. ")
+	return nil
+}
+
+func ReplaceRowInLedger(stub shim.ChaincodeStubInterface, tableName string, keys []string, args []byte) error {
+
+	fmt.Println("buffer is ", args)
+	fmt.Println("keys is ", keys)
+
+	nKeys := GetNumberOfKeys(tableName)
+	if nKeys < 1 {
+		fmt.Println("Atleast 1 Key must be provided \n")
+	}
+
+	var columns []*shim.Column
+
+	for i := 0; i < nKeys; i++ {
+		col := shim.Column{Value: &shim.Column_String_{String_: keys[i]}}
+		columns = append(columns, &col)
+	}
+
+	lastCol := shim.Column{Value: &shim.Column_Bytes{Bytes: []byte(args)}}
+	columns = append(columns, &lastCol)
+
+	row := shim.Row{columns}
+	fmt.Println("appending row is", row)
+	ok, err := stub.ReplaceRow(tableName, row)
 	if err != nil {
 		return fmt.Errorf("UpdateLedger: InsertRow into "+tableName+" Table operation failed. %s", err)
 	}
