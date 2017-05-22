@@ -101,7 +101,7 @@ var tables = []string{"AssetTable", "TransactionHistory", "DocumentTable"}
 // GetNumberOfKeys - Gets the number of keys for the table
 func GetNumberOfKeys(tname string) int {
 	TableMap := map[string]int{
-		"AssetTable":         2,
+		"AssetTable":         3,
 		"TransactionHistory": 3,
 		"DocumentTable":      2,
 	}
