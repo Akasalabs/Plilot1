@@ -87,6 +87,14 @@ type DocumentObject struct {
 	CreatedON      string `json:"createdOn"`
 }
 
+type TransactionHistoryObject struct {
+	OrderID                string `json:"orderId"`
+	Stage                  string `json:"stage"`
+	Timestamp              string `json:"timestamp"`
+	User                   string `json:"user"`
+	TransactionDescription string `json:"transactionDescription"`
+}
+
 var tables = []string{"AssetTable", "TransactionHistory", "DocumentTable"}
 
 // GetNumberOfKeys - Gets the number of keys for the table
@@ -236,7 +244,20 @@ func (t *SimpleChaincode) createDispatchOrder(stub shim.ChaincodeStubInterface, 
 		return nil, errors.New("initContract() : write error while inserting record : " + err.Error())
 	}
 
+	// transactionTime := time.Now().Format("2006-01-02 15:04:05")
 	// make an entry into transaction history table
+	//TransactionHistoryObject, err := TransactionHistoryObject{dispatchObject.DispatchOrderID, dispatchObject.Stage, time.Now().Format("2006-01-02 15:04:05"),stub.get}
+	/*if err != nil {
+		fmt.Println("createDispatchOrder(): Cannot create dispatch object ")
+		return nil, errors.New("createDispatchOrder(): Cannot create dipatch object")
+	}
+
+	keys := []string{dispatchObject.DispatchOrderID, dispatchObject.Stage, time.Now().Format("2006-01-02 15:04:05")}
+	err = UpdateLedger(stub, "TransactionHistory", keys, buff)*/
+	//if err != nil {
+	//	fmt.Println("initContract() : write error while inserting record\n")
+	//	return buff, err
+	//}
 
 	return nil, nil
 }
