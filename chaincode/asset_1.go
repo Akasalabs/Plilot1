@@ -205,6 +205,8 @@ func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function strin
 		return t.getAllDispatchOrdersLatest(stub, args)
 	} else if function == "getDocuments" { //read a contract
 		return t.getDocuments(stub, args)
+	} else if function == "getHistory" { //read a contract
+		return t.getHistory(stub, args)
 	}
 	fmt.Println("query did not find func: " + function) //error
 	return nil, errors.New("Received unknown function query " + function)
@@ -813,6 +815,33 @@ func (t *SimpleChaincode) getDocuments(stub shim.ChaincodeStubInterface, args []
 		if err != nil {
 			fmt.Println("getDocuments() Failed : Ummarshall error")
 			return nil, fmt.Errorf("getDocuments() operation failed. %s", err)
+		}
+		tlist[i] = ar
+	}
+
+	jsonRows, _ := json.Marshal(tlist)
+
+	//fmt.Println("List of Open Auctions : ", jsonRows)
+	return jsonRows, nil
+
+}
+
+func (t *SimpleChaincode) getHistory(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+
+	rows, err := GetList(stub, "TransactionHistory", args)
+	if err != nil {
+		return nil, fmt.Errorf("getHistory() operation failed. Error marshaling JSON: %s", err)
+	}
+
+	nCol := GetNumberOfKeys("TransactionHistory")
+
+	tlist := make([]DocumentObject, len(rows))
+	for i := 0; i < len(rows); i++ {
+		ts := rows[i].Columns[nCol].GetBytes()
+		ar, err := JSONtoDOC(ts)
+		if err != nil {
+			fmt.Println("getHistory() Failed : Ummarshall error")
+			return nil, fmt.Errorf("getHistory() operation failed. %s", err)
 		}
 		tlist[i] = ar
 	}
