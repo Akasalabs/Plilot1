@@ -487,6 +487,7 @@ func (t *SimpleChaincode) mapAsset(stub shim.ChaincodeStubInterface, args []stri
 	result := strings.Split(assetIds, ",")
 	for i := range result {
 		keys := []string{"asset", result[i], "Open"}
+		fmt.Println(keys)
 		rows, err := GetList(stub, "AssetTable", keys)
 		if err != nil {
 			return nil, fmt.Errorf("GetAssets() operation failed. Error marshaling JSON: %s", err)
