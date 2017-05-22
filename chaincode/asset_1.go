@@ -103,7 +103,7 @@ func GetNumberOfKeys(tname string) int {
 	TableMap := map[string]int{
 		"AssetTable":         3,
 		"TransactionHistory": 3,
-		"DocumentTable":      2,
+		"DocumentTable":      3,
 	}
 	return TableMap[tname]
 }
@@ -737,7 +737,7 @@ func (t *SimpleChaincode) invokeDocument(stub shim.ChaincodeStubInterface, args 
 		return nil, errors.New("invokeDocument(): Failed Cannot create object buffer for write : " + args[0])
 	} else {
 		// Update the table with the Buffer Data
-		keys := []string{"document", documentObject.DocumentID}
+		keys := []string{"document", documentObject.DocumentID, time.Now().Format("20060102150405")}
 		err = UpdateLedger(stub, "DocumentTable", keys, buff)
 		if err != nil {
 			fmt.Println("invokeDocument() : write error while inserting record")
