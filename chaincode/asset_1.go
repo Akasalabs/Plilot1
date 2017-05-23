@@ -3,8 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"strconv"
 	"strings"
 	//"strconv"
@@ -187,8 +185,6 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 		return t.mapAsset(stub, args)
 	} else if function == "createDocument" {
 		return t.invokeDocument(stub, args)
-	} else if function == "invokeBulkAsset" {
-		return t.invokeAssetBulk(stub, args)
 	}
 	fmt.Println("invoke did not find func: " + function) //error
 	return nil, errors.New("Received unknown function invocation: " + function)
@@ -883,40 +879,4 @@ func (t *SimpleChaincode) getHistory(stub shim.ChaincodeStubInterface, args []st
 	//fmt.Println("List of Open Auctions : ", jsonRows)
 	return jsonRows, nil
 
-}
-
-func (asst AssetObject) toString() string {
-	return toJson(asst)
-}
-
-func toJson(p interface{}) string {
-	bytes, err := json.Marshal(p)
-	if err != nil {
-		fmt.Println(err.Error())
-		os.Exit(1)
-	}
-
-	return string(bytes)
-}
-
-// invokes an asset into the table
-func (t *SimpleChaincode) invokeAssetBulk(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
-	assets := getAssetsFromFile()
-	for _, asst := range assets {
-		fmt.Println(asst.toString())
-	}
-	fmt.Println(toJson(assets))
-	return []byte("OK"), nil
-}
-
-func getAssetsFromFile() []AssetObject {
-	raw, err := ioutil.ReadFile("./assets.json")
-	if err != nil {
-		fmt.Println(err.Error())
-		os.Exit(1)
-	}
-
-	var c []AssetObject
-	json.Unmarshal(raw, &c)
-	return c
 }
