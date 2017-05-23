@@ -248,6 +248,11 @@ func (t *SimpleChaincode) createDispatchOrder(stub shim.ChaincodeStubInterface, 
 	}
 
 	transactionTime := time.Now().Format("2006-01-02 15:04:05")
+	if err3 != nil{
+		fmt.Println(err3)
+		return nil,err3
+	}
+	fmt.Println(xy)
 	//make an entry into transaction history table
 	TransactionHistoryObject := TransactionHistoryObject{dispatchObject.DispatchOrderID, dispatchObject.Stage, transactionTime, "user", dispatchObject.TransactionDescription}
 	buffer, err := TRtoJSON(TransactionHistoryObject)
