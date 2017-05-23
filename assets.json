@@ -1,0 +1,26 @@
+[
+    {
+        "assetId": "ASST001",
+        "partNumber": "AXPGHISTHY",
+        "partDescription":"spare part",
+        "Owner": "Bosch",
+        "stage": "0",
+        "batchNumer": "batch007",
+        "manufactureDate": "01/04/1992",
+        "itchs": "No clue",
+        "exciseChaperNumber": "12340",
+        "orderId": ""
+    },
+    {
+       "assetId": "ASST2001",
+        "partNumber": "AXPGHISTHY",
+        "partDescription":"spare part",
+        "Owner": "Bosch",
+        "stage": "0",
+        "batchNumer": "batch007",
+        "manufactureDate": "01/04/1992",
+        "itchs": "No clue",
+        "exciseChaperNumber": "12340",
+        "orderId": ""
+    }
+]
