@@ -254,9 +254,10 @@ func (t *SimpleChaincode) createDispatchOrder(stub shim.ChaincodeStubInterface, 
 		return nil, err3
 	}
 	fmt.Println(xy)
-	fmt.Println(string(xy))
+	user := string(xy)
+	fmt.Println("user is : ", user)
 	//make an entry into transaction history table
-	TransactionHistoryObject := TransactionHistoryObject{dispatchObject.DispatchOrderID, dispatchObject.Stage, transactionTime, "user", dispatchObject.TransactionDescription}
+	TransactionHistoryObject := TransactionHistoryObject{dispatchObject.DispatchOrderID, dispatchObject.Stage, transactionTime, user, dispatchObject.TransactionDescription}
 	buffer, err := TRtoJSON(TransactionHistoryObject)
 	if err != nil {
 		fmt.Println("initContract() : Failed to convert transaction history to bytes\n")
@@ -309,8 +310,16 @@ func (t *SimpleChaincode) updateDispatchOrder(stub shim.ChaincodeStubInterface, 
 	}
 
 	transactionTime := time.Now().Format("2006-01-02 15:04:05")
+	xy, err3 := stub.GetCallerMetadata()
+	if err3 != nil {
+		fmt.Println(err3)
+		return nil, err3
+	}
+	fmt.Println(xy)
+	user := string(xy)
+	fmt.Println("user is : ", user)
 	//make an entry into transaction history table
-	TransactionHistoryObject := TransactionHistoryObject{updatedDispatchOrder.DispatchOrderID, updatedDispatchOrder.Stage, transactionTime, "user", updatedDispatchOrder.TransactionDescription}
+	TransactionHistoryObject := TransactionHistoryObject{updatedDispatchOrder.DispatchOrderID, updatedDispatchOrder.Stage, transactionTime, user, updatedDispatchOrder.TransactionDescription}
 	buffer, err := TRtoJSON(TransactionHistoryObject)
 	if err != nil {
 		fmt.Println("updateDispatchOrder() : Failed to convert transaction history to bytes\n")
