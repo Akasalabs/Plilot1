@@ -248,6 +248,7 @@ func (t *SimpleChaincode) createDispatchOrder(stub shim.ChaincodeStubInterface, 
 	}
 
 	transactionTime := time.Now().Format("2006-01-02 15:04:05")
+	xy, err3 := stub.GetCallerMetadata()
 	if err3 != nil{
 		fmt.Println(err3)
 		return nil,err3
