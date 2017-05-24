@@ -884,7 +884,7 @@ func (t *SimpleChaincode) getHistory(stub shim.ChaincodeStubInterface, args []st
 }
 
 func (t *SimpleChaincode) check_affiliation(stub shim.ChaincodeStubInterface) ([]byte, error) {
-	affiliation, err := stub.ReadCertAttribute("role")
+	affiliation, err := stub.ReadCertAttribute("roles")
 	fmt.Println("role is ", string(affiliation))
 
 	if err != nil {
