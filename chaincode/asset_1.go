@@ -208,7 +208,7 @@ func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function strin
 	} else if function == "getHistory" { //read a contract
 		return t.getHistory(stub, args)
 	} else if function == "get_caller_data" {
-		return t.get_caller_data(stub)
+		return t.check_affiliation(stub)
 	}
 	fmt.Println("query did not find func: " + function) //error
 	return nil, errors.New("Received unknown function query " + function)
@@ -883,40 +883,13 @@ func (t *SimpleChaincode) getHistory(stub shim.ChaincodeStubInterface, args []st
 
 }
 
-func (t *SimpleChaincode) get_username(stub shim.ChaincodeStubInterface) (string, error) {
-
-	username, err := stub.ReadCertAttribute("username")
-	fmt.Println("user name is ", string(username))
-	if err != nil {
-		return "", errors.New("Couldn't get attribute 'username'. Error: " + err.Error())
-	}
-	return string(username), nil
-}
-
-func (t *SimpleChaincode) check_affiliation(stub shim.ChaincodeStubInterface) (string, error) {
+func (t *SimpleChaincode) check_affiliation(stub shim.ChaincodeStubInterface) ([]byte, error) {
 	affiliation, err := stub.ReadCertAttribute("role")
-	fmt.Println("user name is ", string(affiliation))
+	fmt.Println("role is ", string(affiliation))
 
 	if err != nil {
-		return "", errors.New("Couldn't get attribute 'role'. Error: " + err.Error())
+		return []byte(""), errors.New("Couldn't get attribute 'role'. Error: " + err.Error())
 	}
-	return string(affiliation), nil
+	return affiliation, nil
 
-}
-
-func (t *SimpleChaincode) get_caller_data(stub shim.ChaincodeStubInterface) ([]byte, error) {
-
-	user, err := t.get_username(stub)
-	fmt.Println("user name is ", string(user))
-
-	// if err != nil { return "", "", err }
-	// ecert, err := t.get_ecert(stub, user);
-	// if err != nil { return "", "", err }
-
-	affiliation, err := t.check_affiliation(stub)
-	fmt.Println("affiliation is ", string(affiliation))
-	if err != nil {
-		return []byte("error"), err
-	}
-	return []byte(affiliation), nil
 }
