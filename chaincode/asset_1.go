@@ -99,7 +99,7 @@ type TransactionHistoryObject struct {
 	TransactionDescription string `json:"transactionDescription"`
 }
 
-var tables = []string{"AssetTable", "TransactionHistory", "DocumentTable"}
+var tables = []string{"AssetTable", "TransactionHistory", "DocumentTable", "VoucherTable"}
 
 // GetNumberOfKeys - Gets the number of keys for the table
 func GetNumberOfKeys(tname string) int {
