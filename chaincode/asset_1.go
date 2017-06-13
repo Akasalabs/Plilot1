@@ -9,6 +9,9 @@ import (
 	"encoding/json"
 	"time"
 	//"strings"
+	"bytes"
+	"encoding/gob"
+
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 )
 
@@ -32,7 +35,7 @@ const STATE_AMENDED = 6
 const STATE_DROPPED = 7
 const STATE_VOUCHER_CREATED = 8
 const STATE_VOUCHER_VALIDATED = 9
-const STATE_PAYMENT_INITIATED = 10
+const STATE_INVOICE_GENERATED = 10
 
 // DispatchOrderObject struct
 type DispatchOrderObject struct {
@@ -49,7 +52,7 @@ type DispatchOrderObject struct {
 	DeliveryTerm                   string `json:"deliveryTerm"`
 	DispatchDate                   string `json:"dispatchDate"`
 	TransporterRef                 string `json:"transporterRef"`
-	LoadingType                    string `json:"loadingType"`
+	LoadingType                    string `json:"loadingType"` //ource //destination //
 	VehicleType                    string `json:"vehicleType"`
 	Weight                         string `json:"weight"`
 	Consignment                    string `json:"consignment"`
@@ -99,7 +102,33 @@ type TransactionHistoryObject struct {
 	TransactionDescription string `json:"transactionDescription"`
 }
 
-var tables = []string{"AssetTable", "TransactionHistory", "DocumentTable", "VoucherTable"}
+// DispatchOrderObject struct
+type VoucherObject struct {
+	VoucherOrderID         string `json:"voucherOrderID"`
+	DispatchOrderID        string `json:"dispatchOrderId"`
+	Stage                  string `json:"stage"`
+	Customer               string `json:"customer"`
+	Transporter            string `json:"transporter"`
+	ShipmentType           string `json:"shipmentType"`
+	DispatchDate           string `json:"dispatchDate"`
+	TransporterRef         string `json:"transporterRef"`
+	LoadingType            string `json:"loadingType"`
+	VehicleType            string `json:"vehicleType"`
+	Weight                 string `json:"weight"`
+	TimeStamp              string `json:"timeStamp"`
+	Amount                 string `json:"amount"`
+	Source                 string `json:"source"`
+	TransactionDescription string `json:"transactionDescription"`
+}
+
+type InvoiceObject struct {
+	InvoiceID   string `json:"InvoiceID"`
+	VoucherList string `json:"VoucherList"`
+	Stage       string `json:"stage"`
+	Amount      string `json:"amount"`
+}
+
+var tables = []string{"AssetTable", "TransactionHistory", "DocumentTable", "VoucherTable", "InvoiceTable"}
 
 // GetNumberOfKeys - Gets the number of keys for the table
 func GetNumberOfKeys(tname string) int {
@@ -108,6 +137,7 @@ func GetNumberOfKeys(tname string) int {
 		"TransactionHistory": 3,
 		"DocumentTable":      3,
 		"VoucherTable":       4,
+		"InvoiceTable":       2, //"invoice","invoiceIds","stringof dispatch orders",buff -"amount"
 	}
 	return TableMap[tname]
 }
@@ -467,6 +497,17 @@ func doToJSON(c DispatchOrderObject) ([]byte, error) {
 	return cjson, nil
 }
 
+// doToJSON Converts an dispatch Object to a JSON String
+func voToJSON(c VoucherObject) ([]byte, error) {
+	cjson, err := json.Marshal(c)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	fmt.Println("dispatch object as bytes ", cjson)
+	return cjson, nil
+}
+
 // JSON To args[] - return a map of the JSON string
 func JSONtoArgs(Avalbytes []byte) (map[string]string, error) {
 
@@ -509,7 +550,7 @@ func (t *SimpleChaincode) invokeAsset(stub shim.ChaincodeStubInterface, args []s
 }
 
 func (t *SimpleChaincode) createVoucher(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
-	var jsonResp string
+	// var jsonResp string
 	voucherObject, err := CreateVoucherObject(args[0:])
 	if err != nil {
 		fmt.Println("createVoucher(): Cannot create voucher object \n")
@@ -518,21 +559,21 @@ func (t *SimpleChaincode) createVoucher(stub shim.ChaincodeStubInterface, args [
 
 	// Convert Item Object to JSON
 	fmt.Println("voucherObject is", voucherObject)
-	buff, err := doToJSON(voucherObject)
+	buff, err := voToJSON(voucherObject)
 	fmt.Println("buff is ", buff)
 	if err != nil {
 		fmt.Println("createVoucher() : Failed Cannot create voucher object buffer for write : ", args[0])
 		return nil, errors.New("createVoucher(): Failed Cannot create voucher object buffer for write : " + args[0])
 	} else {
 		// Update the voucher table with the Buffer Data and updatedDispatchOrder with recent stage voucher created
-		keys := []string{"voucher", voucherObject.DispatchOrderID, "amount", voucherObject.Stage}
+		keys := []string{"voucher", voucherObject.VoucherOrderID, voucherObject.Stage, "invoice"}
 		fmt.Println("createVoucher() keys are :", keys)
 		err = UpdateLedger(stub, "VoucherTable", keys, buff)
 		if err != nil {
 			fmt.Println("createVoucher() : write error while inserting record\n")
 			return buff, err
 		}
-		dispatchOrderAsbytes, err := stub.GetState(voucherObject.DispatchOrderID)
+		/*dispatchOrderAsbytes, err := stub.GetState(voucherObject.DispatchOrderID)
 		if err != nil {
 			jsonResp = "{\"Error\":\"Failed to get state for " + voucherObject.DispatchOrderID + "\"}"
 			return nil, errors.New(jsonResp)
@@ -546,7 +587,7 @@ func (t *SimpleChaincode) createVoucher(stub shim.ChaincodeStubInterface, args [
 		if err != nil {
 			fmt.Println("createVoucher() : write error while inserting record\n")
 			return nil, errors.New("createVoucher() : write error while inserting record : " + err.Error())
-		}
+		}*/
 
 		transactionTime := time.Now().Format("2006-01-02 15:04:05")
 		xy, err3 := stub.GetCallerMetadata()
@@ -572,11 +613,26 @@ func (t *SimpleChaincode) createVoucher(stub shim.ChaincodeStubInterface, args [
 
 func (t *SimpleChaincode) mapAsset(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
-	// s := make([]string, 20, 20)
-	// var array []string
+	var jsonResp string
 	orderID := args[0]
 	fmt.Println("orderId is" + orderID)
+	//update blockchain
+	dispatchOrderAsbytes, err := stub.GetState(orderID)
+	if err != nil {
+		jsonResp = "{\"Error\":\"Failed to get state for " + orderID + "\"}"
+		return nil, errors.New(jsonResp)
+	}
+	dat, err := JSONtoArgs(dispatchOrderAsbytes)
+	if err != nil {
+		return nil, errors.New("unable to convert jsonToArgs for" + orderID)
+	}
+	fmt.Println(dat)
 	assetIds := args[1]
+	dat["assetIds"] = assetIds
+	dispatchOrderWithAssetsAsBytes, err := GetBytes(dat)
+	if err != nil {
+		return nil, errors.New("mapAsset(): Failed Cannot create object buffer for write : " + args[0])
+	}
 	result := strings.Split(assetIds, ",")
 	for i := range result {
 		keys := []string{"asset", result[i]}
@@ -602,10 +658,80 @@ func (t *SimpleChaincode) mapAsset(stub shim.ChaincodeStubInterface, args []stri
 				fmt.Println("invokeAsset() : write error while inserting record\n")
 				return buff, err
 			}
+			//uypdate the block with added Assets
+			err = stub.PutState(dat["dispatchOrderId"], dispatchOrderWithAssetsAsBytes)
+			if err != nil {
+				fmt.Println("updateDispatchOrder() : write error while inserting record\n")
+				return nil, errors.New("updateDispatchOrder() : write error while inserting record : " + err.Error())
+			}
+
 		}
 	}
 	return []byte("Assets Mapped"), nil
 }
+
+func (t *SimpleChaincode) createInvoice(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+
+	invoiceAmount := "zero"
+	invoiceID := args[0]
+	fmt.Println("invoiceID is" + invoiceID)
+	voucherIds := args[1]
+	result := strings.Split(voucherIds, ",")
+	for i := range result {
+		keys := []string{"voucher", result[i]}
+		fmt.Println(keys)
+		voucherObjectFromLedger, err := getVoucherFromTable(stub, keys)
+		if err != nil {
+			return nil, fmt.Errorf("createInvoice() operation failed. Error marshaling JSON: %s", err)
+		}
+		//update voucher table data
+		invoiceAmount = invoiceAmount + voucherObjectFromLedger.Amount
+		voucherObjectFromLedger.Stage = strconv.Itoa(STATE_INVOICE_GENERATED)
+		buff, err := voToJSON(voucherObjectFromLedger)
+		fmt.Println("buff is ", buff)
+		if err != nil {
+			fmt.Println("createInvoice() : Failed Cannot create object buffer for write : ", args[0])
+			return nil, errors.New("createInvoice(): Failed Cannot create object buffer for write : " + args[0])
+		} else {
+			// Update the table with the Buffer Data
+			keys := []string{"voucher", voucherObjectFromLedger.DispatchOrderID, voucherObjectFromLedger.Stage, invoiceID}
+			fmt.Println("createInvoice() keys are :", keys)
+
+			err = UpdateLedger(stub, "VoucherTable", keys, buff)
+			if err != nil {
+				fmt.Println("invokeAsset() : write error while inserting record\n")
+				return buff, err
+			}
+		}
+	}
+	//create invoice table
+	invoice := []string{"invoice", invoiceID, voucherIds, invoiceAmount}
+	invoiceObject, err := CreateInvoiceObject(invoice)
+	if err != nil {
+		fmt.Println("invokeAsset(): Cannot create item object \n")
+		return nil, err
+	}
+
+	/*// Check if the Owner ID specified is registered and valid */
+	// Convert Item Object to JSON
+	fmt.Println("invoiceObject is", invoiceObject)
+	buffInvoice, err := InvoicetoJSON(invoiceObject)
+	fmt.Println("invoice buff is ", buffInvoice)
+
+	keys := []string{"invoice", invoiceID}
+	fmt.Println("createVoucher() keys are :", keys)
+	err = UpdateLedger(stub, "VoucherTable", keys, buffInvoice)
+	if err != nil {
+		fmt.Println("createVoucher() : write error while inserting record\n")
+		return buffInvoice, err
+	}
+
+	return []byte("Invoice Created"), nil
+}
+
+//update blockchain
+//create invoice tableName
+//transaction history
 
 // CreateAssetObject creates an asset
 func CreateAssetObject(args []string) (AssetObject, error) {
@@ -641,11 +767,22 @@ func ARtoJSON(ast AssetObject) ([]byte, error) {
 	return ajson, nil
 }
 
+func InvoicetoJSON(inv InvoiceObject) ([]byte, error) {
+
+	ajson, err := json.Marshal(inv)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	return ajson, nil
+}
+
 // CreateAssetObject creates an asset
-func CreateVoucherObject(args []string) (DispatchOrderObject, error) {
+func CreateVoucherObject(args []string) (VoucherObject, error) {
 	// S001 LHTMO bosch
 	// var err error to be
-	var myVoucher DispatchOrderObject
+	var myVoucher VoucherObject
+	var dispatchOrder DispatchOrderObject
 
 	// Check there are 3 Arguments provided as per the the struct
 	if len(args) != 31 {
@@ -653,8 +790,36 @@ func CreateVoucherObject(args []string) (DispatchOrderObject, error) {
 		return myVoucher, errors.New("CreateVoucherObject(): Incorrect number of arguments. Expecting 31 ")
 	}
 
-	myVoucher = DispatchOrderObject{args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14], args[15], args[16], args[17], args[18], args[19], args[20], args[21], args[22], args[23], args[24], args[25], args[26], args[27], args[28], args[29], args[30], time.Now().Format("20060102150405")}
+	dispatchOrder = DispatchOrderObject{args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14], args[15], args[16], args[17], args[18], args[19], args[20], args[21], args[22], args[23], args[24], args[25], args[26], args[27], args[28], args[29], args[30], time.Now().Format("20060102150405")}
+	myVoucher.VoucherOrderID = "A" + dispatchOrder.DispatchOrderID
+	myVoucher.DispatchOrderID = dispatchOrder.DispatchOrderID
+	myVoucher.Amount = "zero"
+	myVoucher.LoadingType = dispatchOrder.LoadingType
+	myVoucher.Source = dispatchOrder.Source
+	myVoucher.Transporter = "destination"
+	myVoucher.Weight = dispatchOrder.Weight
+	myVoucher.TransactionDescription = dispatchOrder.TransactionDescription
 	return myVoucher, nil
+}
+
+// CreateAssetObject creates an asset
+func CreateInvoiceObject(args []string) (InvoiceObject, error) {
+
+	var myInvoice InvoiceObject
+
+	if len(args) != 4 {
+		fmt.Println("CreateInvoiceObject(): Incorrect number of arguments. Expecting 4 ")
+		return myInvoice, errors.New("CreateInvoiceObject(): Incorrect number of arguments. Expecting 4 ")
+	}
+
+	myInvoice = InvoiceObject{args[0], args[1], args[2], args[3]}
+	return myInvoice, nil
+}
+
+func CalculateVoucherAmount(VoucherObject) (int, error) {
+
+	voucherAmount := 2000
+	return voucherAmount, nil
 }
 
 func TRtoJSON(to TransactionHistoryObject) ([]byte, error) {
@@ -784,6 +949,29 @@ func getAssetFromTable(stub shim.ChaincodeStubInterface, args []string) (AssetOb
 	return ar, nil
 }
 
+func getVoucherFromTable(stub shim.ChaincodeStubInterface, args []string) (VoucherObject, error) {
+
+	rows, err := GetList(stub, "VoucherTable", args)
+	if err != nil {
+		return VoucherObject{}, fmt.Errorf("getInvoiceFromTable() operation failed. Error marshaling JSON: %s", err)
+	}
+
+	nCol := GetNumberOfKeys("VoucherTable")
+
+	// tlist := make([]AssetObject, len(rows))
+	//for i := 0; i < len(rows); i++ {
+	ts := rows[0].Columns[nCol].GetBytes()
+	ar, err := JSONtoVO(ts)
+	if err != nil {
+		fmt.Println("getInvoiceFromTable() Failed : Ummarshall error")
+		return VoucherObject{}, fmt.Errorf("getInvoiceFromTable() operation failed. %s", err)
+	}
+	// tlist[i] = ar
+	//}
+
+	return ar, nil
+}
+
 func (t *SimpleChaincode) getVouchers(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
 	rows, err := GetList(stub, "VoucherTable", args)
@@ -793,10 +981,10 @@ func (t *SimpleChaincode) getVouchers(stub shim.ChaincodeStubInterface, args []s
 
 	nCol := GetNumberOfKeys("VoucherTable")
 
-	tlist := make([]DispatchOrderObject, len(rows))
+	tlist := make([]VoucherObject, len(rows))
 	for i := 0; i < len(rows); i++ {
 		ts := rows[i].Columns[nCol].GetBytes()
-		ar, err := JSONtoDO(ts)
+		ar, err := JSONtoVO(ts)
 		if err != nil {
 			fmt.Println("GetAssets() Failed : Ummarshall error")
 			return nil, fmt.Errorf("GetAssets() operation failed. %s", err)
@@ -864,6 +1052,17 @@ func JSONtoAR(data []byte) (AssetObject, error) {
 func JSONtoDO(data []byte) (DispatchOrderObject, error) {
 
 	do := DispatchOrderObject{}
+	err := json.Unmarshal([]byte(data), &do)
+	if err != nil {
+		fmt.Println("Unmarshal failed : ", err)
+	}
+
+	return do, err
+}
+
+func JSONtoVO(data []byte) (VoucherObject, error) {
+
+	do := VoucherObject{}
 	err := json.Unmarshal([]byte(data), &do)
 	if err != nil {
 		fmt.Println("Unmarshal failed : ", err)
@@ -1013,4 +1212,14 @@ func (t *SimpleChaincode) check_affiliation(stub shim.ChaincodeStubInterface) ([
 	}
 	return affiliation, nil
 
+}
+
+func GetBytes(key interface{}) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	err := enc.Encode(key)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
