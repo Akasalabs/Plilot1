@@ -30,6 +30,9 @@ const STATE_IN_TRANSIT = 4
 const STATE_SHIPMENT_DELIVERED = 5
 const STATE_AMENDED = 6
 const STATE_DROPPED = 7
+const STATE_VOUCHER_CREATED = 8
+const STATE_VOUCHER_VALIDATED = 9
+const STATE_PAYMENT_INITIATED = 10
 
 // DispatchOrderObject struct
 type DispatchOrderObject struct {
@@ -104,6 +107,7 @@ func GetNumberOfKeys(tname string) int {
 		"AssetTable":         3,
 		"TransactionHistory": 3,
 		"DocumentTable":      3,
+		"VoucherTable":       4,
 	}
 	return TableMap[tname]
 }
@@ -185,6 +189,8 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 		return t.mapAsset(stub, args)
 	} else if function == "createDocument" {
 		return t.invokeDocument(stub, args)
+	} else if function == "createVoucher" {
+		return t.createVoucher(stub, args)
 	}
 	fmt.Println("invoke did not find func: " + function) //error
 	return nil, errors.New("Received unknown function invocation: " + function)
@@ -209,6 +215,8 @@ func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function strin
 		return t.getHistory(stub, args)
 	} else if function == "get_caller_data" {
 		return t.check_affiliation(stub)
+	} else if function == "getVouchers" { //read a contract
+		return t.getVouchers(stub, args)
 	}
 	fmt.Println("query did not find func: " + function) //error
 	return nil, errors.New("Received unknown function query " + function)
@@ -500,6 +508,68 @@ func (t *SimpleChaincode) invokeAsset(stub shim.ChaincodeStubInterface, args []s
 	}
 }
 
+func (t *SimpleChaincode) createVoucher(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	var jsonResp string
+	voucherObject, err := CreateVoucherObject(args[0:])
+	if err != nil {
+		fmt.Println("createVoucher(): Cannot create voucher object \n")
+		return nil, err
+	}
+
+	// Convert Item Object to JSON
+	fmt.Println("voucherObject is", voucherObject)
+	buff, err := doToJSON(voucherObject)
+	fmt.Println("buff is ", buff)
+	if err != nil {
+		fmt.Println("createVoucher() : Failed Cannot create voucher object buffer for write : ", args[0])
+		return nil, errors.New("createVoucher(): Failed Cannot create voucher object buffer for write : " + args[0])
+	} else {
+		// Update the voucher table with the Buffer Data and updatedDispatchOrder with recent stage voucher created
+		keys := []string{"voucher", voucherObject.DispatchOrderID, "amount", voucherObject.Stage}
+		fmt.Println("createVoucher() keys are :", keys)
+		err = UpdateLedger(stub, "VoucherTable", keys, buff)
+		if err != nil {
+			fmt.Println("createVoucher() : write error while inserting record\n")
+			return buff, err
+		}
+		dispatchOrderAsbytes, err := stub.GetState(voucherObject.DispatchOrderID)
+		if err != nil {
+			jsonResp = "{\"Error\":\"Failed to get state for " + voucherObject.DispatchOrderID + "\"}"
+			return nil, errors.New(jsonResp)
+		}
+		if dispatchOrderAsbytes == nil {
+			fmt.Println("createVoucher() : contract is null for", voucherObject.DispatchOrderID)
+			jsonResp := "{\"Error\":\"Failed - contract is null for " + voucherObject.DispatchOrderID + "\"}"
+			return nil, errors.New(jsonResp)
+		}
+		err = stub.PutState(voucherObject.DispatchOrderID, buff)
+		if err != nil {
+			fmt.Println("createVoucher() : write error while inserting record\n")
+			return nil, errors.New("createVoucher() : write error while inserting record : " + err.Error())
+		}
+
+		transactionTime := time.Now().Format("2006-01-02 15:04:05")
+		xy, err3 := stub.GetCallerMetadata()
+		if err3 != nil {
+			fmt.Println(err3)
+			return nil, err3
+		}
+		fmt.Println(xy)
+		user := string(xy)
+		fmt.Println("user is : ", user)
+		//make an entry into transaction history table
+		TransactionHistoryObject := TransactionHistoryObject{voucherObject.DispatchOrderID, voucherObject.Stage, transactionTime, user, voucherObject.TransactionDescription}
+		buffer, err := TRtoJSON(TransactionHistoryObject)
+		if err != nil {
+			fmt.Println("createVoucher() : Failed to convert transaction history to bytes\n")
+			return nil, errors.New("createVoucher() : Failed to convert transaction history to bytes : " + err.Error())
+		}
+		Trasactionkeys := []string{"transaction", voucherObject.DispatchOrderID, time.Now().Format("2006-01-02 15:04:05")}
+		err = UpdateLedger(stub, "TransactionHistory", Trasactionkeys, buffer)
+		return nil, nil
+	}
+}
+
 func (t *SimpleChaincode) mapAsset(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
 	// s := make([]string, 20, 20)
@@ -569,6 +639,22 @@ func ARtoJSON(ast AssetObject) ([]byte, error) {
 		return nil, err
 	}
 	return ajson, nil
+}
+
+// CreateAssetObject creates an asset
+func CreateVoucherObject(args []string) (DispatchOrderObject, error) {
+	// S001 LHTMO bosch
+	// var err error to be
+	var myVoucher DispatchOrderObject
+
+	// Check there are 3 Arguments provided as per the the struct
+	if len(args) != 31 {
+		fmt.Println("CreateVoucherObject(): Incorrect number of arguments. Expecting 31 ")
+		return myVoucher, errors.New("CreateVoucherObject(): Incorrect number of arguments. Expecting 31 ")
+	}
+
+	myVoucher = DispatchOrderObject{args[0], strconv.Itoa(STATE_OBD_REQUEST_CREATED), args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14], args[15], args[16], args[17], args[18], args[19], args[20], args[21], args[22], args[23], args[24], args[25], args[26], args[27], args[28], args[29], args[30], time.Now().Format("20060102150405")}
+	return myVoucher, nil
 }
 
 func TRtoJSON(to TransactionHistoryObject) ([]byte, error) {
@@ -698,6 +784,30 @@ func getAssetFromTable(stub shim.ChaincodeStubInterface, args []string) (AssetOb
 	return ar, nil
 }
 
+func (t *SimpleChaincode) getVouchers(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+
+	rows, err := GetList(stub, "VoucherTable", args)
+	if err != nil {
+		return nil, fmt.Errorf("GetAssets() operation failed. Error marshaling JSON: %s", err)
+	}
+
+	nCol := GetNumberOfKeys("VoucherTable")
+
+	tlist := make([]DispatchOrderObject, len(rows))
+	for i := 0; i < len(rows); i++ {
+		ts := rows[i].Columns[nCol].GetBytes()
+		ar, err := JSONtoDO(ts)
+		if err != nil {
+			fmt.Println("GetAssets() Failed : Ummarshall error")
+			return nil, fmt.Errorf("GetAssets() operation failed. %s", err)
+		}
+		tlist[i] = ar
+	}
+
+	jsonRows, _ := json.Marshal(tlist)
+	return jsonRows, nil
+}
+
 func GetList(stub shim.ChaincodeStubInterface, tableName string, args []string) ([]shim.Row, error) {
 	var columns []shim.Column
 
@@ -749,6 +859,17 @@ func JSONtoAR(data []byte) (AssetObject, error) {
 	}
 
 	return ar, err
+}
+
+func JSONtoDO(data []byte) (DispatchOrderObject, error) {
+
+	do := DispatchOrderObject{}
+	err := json.Unmarshal([]byte(data), &do)
+	if err != nil {
+		fmt.Println("Unmarshal failed : ", err)
+	}
+
+	return do, err
 }
 
 // invokes an asset into the table
