@@ -748,13 +748,20 @@ func (t *SimpleChaincode) mapAsset(stub shim.ChaincodeStubInterface, args []stri
 		return nil, errors.New("unable to convert jsonToArgs for" + orderID)
 	}
 	fmt.Println(dat)
+	dispatchOrderAsString, err := json.Marshal(dat)
+	if err != nil {
+		return nil, errors.New("mapAsset(): Failed to convert map into string : " + args[0])
+	}
+	fmt.Println(dispatchOrderAsString)
 	assetIds := args[1]
 	dat["assetIds"] = assetIds
 	fmt.Println("dispatch order with assets as bytes is ", dat)
-	dispatchOrderWithAssetsAsBytes, err := GetBytes(dat)
+	fmt.Println("dispatch order as map converted into json string is ", dispatchOrderAsString)
+
+	/*dispatchOrderWithAssetsAsBytes, err := GetBytes(dat)
 	if err != nil {
 		return nil, errors.New("mapAsset(): Failed Cannot create object buffer for write : " + args[0])
-	}
+	}*/
 	result := strings.Split(assetIds, ",")
 	for i := range result {
 		keys := []string{"asset", result[i]}
@@ -781,7 +788,7 @@ func (t *SimpleChaincode) mapAsset(stub shim.ChaincodeStubInterface, args []stri
 				return buff, err
 			}
 			//uypdate the block with added Assets
-			err = stub.PutState(dat["dispatchOrderId"], dispatchOrderWithAssetsAsBytes)
+			err = stub.PutState(dat["dispatchOrderId"], dispatchOrderAsString)
 			if err != nil {
 				fmt.Println("updateDispatchOrder() : write error while inserting record\n")
 				return nil, errors.New("updateDispatchOrder() : write error while inserting record : " + err.Error())
