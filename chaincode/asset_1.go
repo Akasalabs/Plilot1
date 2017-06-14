@@ -240,6 +240,8 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 		return t.invokeDocument(stub, args)
 	} else if function == "createVoucher" {
 		return t.createVoucher(stub, args)
+	} else if function == "updateVoucher" {
+		return t.updateVoucher(stub, args)
 	} else if function == "createInvoice" {
 		return t.createInvoice(stub, args)
 	}
