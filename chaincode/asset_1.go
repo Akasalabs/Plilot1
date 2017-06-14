@@ -270,6 +270,8 @@ func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function strin
 		return t.check_affiliation(stub)
 	} else if function == "getVouchers" { //read a contract
 		return t.getVouchers(stub, args)
+	} else if function == "getInvoice" { //read a contract
+		return t.getInvoice(stub, args)
 	}
 	fmt.Println("query did not find func: " + function) //error
 	return nil, errors.New("Received unknown function query " + function)
@@ -824,7 +826,7 @@ func (t *SimpleChaincode) createInvoice(stub shim.ChaincodeStubInterface, args [
 		}
 	}
 	//create invoice table
-	invoice := []string{"invoice", invoiceID, voucherIds, invoiceAmount}
+	invoice := []string{invoiceID, voucherIds, strconv.Itoa(STATE_INVOICE_GENERATED), invoiceAmount}
 	invoiceObject, err := CreateInvoiceObject(invoice)
 	if err != nil {
 		fmt.Println("invokeAsset(): Cannot create item object \n")
@@ -1051,6 +1053,29 @@ func (t *SimpleChaincode) getAssets(stub shim.ChaincodeStubInterface, args []str
 	return jsonRows, nil
 }
 
+func (t *SimpleChaincode) getInvoice(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+
+	rows, err := GetList(stub, "InvoiceTable", args)
+	if err != nil {
+		return nil, fmt.Errorf("getInvoice() operation failed. Error marshaling JSON: %s", err)
+	}
+
+	nCol := GetNumberOfKeys("InvoiceTable")
+
+	tlist := make([]InvoiceObject, len(rows))
+	for i := 0; i < len(rows); i++ {
+		ts := rows[i].Columns[nCol].GetBytes()
+		ar, err := JSONtoInvoice(ts)
+		if err != nil {
+			fmt.Println("GetAssets() Failed : Ummarshall error")
+			return nil, fmt.Errorf("GetAssets() operation failed. %s", err)
+		}
+		tlist[i] = ar
+	}
+	jsonRows, _ := json.Marshal(tlist)
+	return jsonRows, nil
+}
+
 func getAssetFromTable(stub shim.ChaincodeStubInterface, args []string) (AssetObject, error) {
 
 	rows, err := GetList(stub, "AssetTable", args)
@@ -1166,6 +1191,17 @@ func GetList(stub shim.ChaincodeStubInterface, tableName string, args []string) 
 func JSONtoAR(data []byte) (AssetObject, error) {
 
 	ar := AssetObject{}
+	err := json.Unmarshal([]byte(data), &ar)
+	if err != nil {
+		fmt.Println("Unmarshal failed : ", err)
+	}
+
+	return ar, err
+}
+
+func JSONtoInvoice(data []byte) (InvoiceObject, error) {
+
+	ar := InvoiceObject{}
 	err := json.Unmarshal([]byte(data), &ar)
 	if err != nil {
 		fmt.Println("Unmarshal failed : ", err)
