@@ -649,6 +649,85 @@ func (t *SimpleChaincode) createVoucher(stub shim.ChaincodeStubInterface, args [
 	}
 }
 
+func (t *SimpleChaincode) updateVoucher(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	var jsonResp string
+	voucherObject, err := CreateUpdatedVoucherObject(args[0:])
+	if err != nil {
+		fmt.Println("createVoucher(): Cannot create voucher object \n")
+		return nil, err
+	}
+	fmt.Println("voucherObject is", voucherObject)
+
+	dispatchObject, err := createDispatchOrderObject(args[1:32])
+	if err != nil {
+		fmt.Println("createVoucher(): Cannot create dispatch object \n")
+		return nil, err
+	}
+
+	fmt.Println("dispatchObject is", dispatchObject)
+	dispatchObject.Stage = strconv.Itoa(STATE_VOUCHER_VALIDATED)
+	dispatchOrderBuffer, err := doToJSON(dispatchObject)
+	if err != nil {
+		fmt.Println("createVoucher() : Failed Cannot create dispatch object buffer for write : ", args[0])
+		return nil, errors.New("createVoucher(): Failed Cannot create dispatch object buffer for write : " + args[0])
+	}
+	fmt.Println("dispatch order buff is ", dispatchOrderBuffer)
+
+	// Convert Item Object to JSON
+	voucherObject.Stage = strconv.Itoa(STATE_VOUCHER_VALIDATED)
+	buff, err := voToJSON(voucherObject)
+	fmt.Println("buff is ", buff)
+	if err != nil {
+		fmt.Println("createVoucher() : Failed Cannot create voucher object buffer for write : ", args[0])
+		return nil, errors.New("createVoucher(): Failed Cannot create voucher object buffer for write : " + args[0])
+	} else {
+		// Update the voucher table with the Buffer Data and updatedDispatchOrder with recent stage voucher created
+		keys := []string{"voucher", voucherObject.VoucherID, voucherObject.Stage, "invoice"}
+		fmt.Println("createVoucher() keys are :", keys)
+		err = UpdateLedger(stub, "VoucherTable", keys, buff)
+		if err != nil {
+			fmt.Println("createVoucher() : write error while inserting record\n")
+			return buff, err
+		}
+		// adding stage into main contract
+		dispatchOrderAsbytes, err := stub.GetState(voucherObject.DispatchOrderID)
+		if err != nil {
+			jsonResp = "{\"Error\":\"Failed to get state for " + voucherObject.DispatchOrderID + "\"}"
+			return nil, errors.New(jsonResp)
+		}
+		if dispatchOrderAsbytes == nil {
+			fmt.Println("createVoucher() : contract is null for", voucherObject.DispatchOrderID)
+			jsonResp := "{\"Error\":\"Failed - contract is null for " + voucherObject.DispatchOrderID + "\"}"
+			return nil, errors.New(jsonResp)
+		}
+		err = stub.PutState(voucherObject.DispatchOrderID, dispatchOrderBuffer)
+		if err != nil {
+			fmt.Println("createVoucher() : write error while inserting record\n")
+			return nil, errors.New("createVoucher() : write error while inserting record : " + err.Error())
+		}
+
+		transactionTime := time.Now().Format("2006-01-02 15:04:05")
+		xy, err3 := stub.GetCallerMetadata()
+		if err3 != nil {
+			fmt.Println(err3)
+			return nil, err3
+		}
+		fmt.Println(xy)
+		user := string(xy)
+		fmt.Println("user is : ", user)
+		//make an entry into transaction history table
+		TransactionHistoryObject := TransactionHistoryObject{voucherObject.DispatchOrderID, voucherObject.Stage, transactionTime, user, voucherObject.TransactionDescription}
+		buffer, err := TRtoJSON(TransactionHistoryObject)
+		if err != nil {
+			fmt.Println("createVoucher() : Failed to convert transaction history to bytes\n")
+			return nil, errors.New("createVoucher() : Failed to convert transaction history to bytes : " + err.Error())
+		}
+		Trasactionkeys := []string{"transaction", voucherObject.DispatchOrderID, time.Now().Format("2006-01-02 15:04:05")}
+		err = UpdateLedger(stub, "TransactionHistory", Trasactionkeys, buffer)
+		return nil, nil
+	}
+}
+
 func (t *SimpleChaincode) mapAsset(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
 	var jsonResp string
@@ -821,13 +900,28 @@ func CreateVoucherObject(args []string) (VoucherObject, error) {
 	// var err error to be
 	var myVoucher VoucherObject
 
-	// Check there are 3 Arguments provided as per the the struct
+	// Check there are 31 Arguments provided as per the the struct
 	if len(args) != 31 {
 		fmt.Println("CreateVoucherObject(): Incorrect number of arguments. Expecting 31 ")
 		return myVoucher, errors.New("CreateVoucherObject(): Incorrect number of arguments. Expecting 31 ")
 	}
 
 	myVoucher = VoucherObject{args[0], args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14], args[15], args[16], args[17], args[18], args[19], args[20], args[21], args[22], args[23], args[24], args[25], args[26], args[27], args[28], args[29], args[30], time.Now().Format("20060102150405"), "amount"}
+	return myVoucher, nil
+}
+
+func CreateUpdatedVoucherObject(args []string) (VoucherObject, error) {
+	// S001 LHTMO bosch
+	// var err error to be
+	var myVoucher VoucherObject
+
+	// Check there are 3 Arguments provided as per the the struct
+	if len(args) != 33 {
+		fmt.Println("CreateVoucherObject(): Incorrect number of arguments. Expecting 31 ")
+		return myVoucher, errors.New("CreateVoucherObject(): Incorrect number of arguments. Expecting 31 ")
+	}
+
+	myVoucher = VoucherObject{args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14], args[15], args[16], args[17], args[18], args[19], args[20], args[21], args[22], args[23], args[24], args[25], args[26], args[27], args[28], args[29], args[30], args[31], time.Now().Format("20060102150405"), args[33]}
 	return myVoucher, nil
 }
 
