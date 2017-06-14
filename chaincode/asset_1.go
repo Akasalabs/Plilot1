@@ -750,6 +750,7 @@ func (t *SimpleChaincode) mapAsset(stub shim.ChaincodeStubInterface, args []stri
 	fmt.Println(dat)
 	assetIds := args[1]
 	dat["assetIds"] = assetIds
+	fmt.Println("dispatch order with assets as bytes is ", dat)
 	dispatchOrderWithAssetsAsBytes, err := GetBytes(dat)
 	if err != nil {
 		return nil, errors.New("mapAsset(): Failed Cannot create object buffer for write : " + args[0])
@@ -793,6 +794,7 @@ func (t *SimpleChaincode) mapAsset(stub shim.ChaincodeStubInterface, args []stri
 
 func (t *SimpleChaincode) createInvoice(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
+	var jsonResp string
 	invoiceAmount := "zero"
 	invoiceID := args[0]
 	fmt.Println("invoiceID is" + invoiceID)
@@ -805,6 +807,20 @@ func (t *SimpleChaincode) createInvoice(stub shim.ChaincodeStubInterface, args [
 		if err != nil {
 			return nil, fmt.Errorf("createInvoice() operation failed. Error marshaling JSON: %s", err)
 		}
+		//fetching dispatch order from block
+		dispatchOrderAsbytes, err := stub.GetState(result[i])
+		if err != nil {
+			jsonResp = "{\"Error\":\"Failed to get state for " + result[i] + "\"}"
+			return nil, errors.New(jsonResp)
+		}
+
+		dat, err := JSONtoArgs(dispatchOrderAsbytes)
+		if err != nil {
+			return nil, errors.New("unable to convert jsonToArgs for" + result[i])
+		}
+		fmt.Println(dat)
+		fmt.Println(dat["dispatchOrderId"])
+
 		//update voucher table data
 		invoiceAmount = invoiceAmount + voucherObjectFromLedger.Amount
 		voucherObjectFromLedger.Stage = strconv.Itoa(STATE_INVOICE_GENERATED)
@@ -833,8 +849,6 @@ func (t *SimpleChaincode) createInvoice(stub shim.ChaincodeStubInterface, args [
 		return nil, err
 	}
 
-	/*// Check if the Owner ID specified is registered and valid */
-	// Convert Item Object to JSON
 	fmt.Println("invoiceObject is", invoiceObject)
 	buffInvoice, err := InvoicetoJSON(invoiceObject)
 	fmt.Println("invoice buff is ", buffInvoice)
