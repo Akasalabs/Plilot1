@@ -838,10 +838,10 @@ func (t *SimpleChaincode) createInvoice(stub shim.ChaincodeStubInterface, args [
 	fmt.Println("invoice buff is ", buffInvoice)
 
 	keys := []string{"invoice", invoiceID}
-	fmt.Println("createVoucher() keys are :", keys)
-	err = UpdateLedger(stub, "VoucherTable", keys, buffInvoice)
+	fmt.Println("createInvoice() keys are :", keys)
+	err = UpdateLedger(stub, "InvoiceTable", keys, buffInvoice)
 	if err != nil {
-		fmt.Println("createVoucher() : write error while inserting record\n")
+		fmt.Println("createInvoice() : write error while inserting record\n")
 		return buffInvoice, err
 	}
 
