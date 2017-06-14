@@ -653,7 +653,7 @@ func (t *SimpleChaincode) createVoucher(stub shim.ChaincodeStubInterface, args [
 
 func (t *SimpleChaincode) updateVoucher(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 	var jsonResp string
-	voucherObject, err := CreateUpdatedVoucherObject(args[0:])
+	voucherObject, err := CreateUpdatedVoucherObject(args[:])
 	if err != nil {
 		fmt.Println("createVoucher(): Cannot create voucher object \n")
 		return nil, err
@@ -918,9 +918,9 @@ func CreateUpdatedVoucherObject(args []string) (VoucherObject, error) {
 	var myVoucher VoucherObject
 
 	// Check there are 3 Arguments provided as per the the struct
-	if len(args) != 33 {
-		fmt.Println("CreateVoucherObject(): Incorrect number of arguments. Expecting 31 ")
-		return myVoucher, errors.New("CreateVoucherObject(): Incorrect number of arguments. Expecting 31 ")
+	if len(args) != 34 {
+		fmt.Println("CreateVoucherObject(): Incorrect number of arguments. Expecting 34 current args %d", len(args))
+		return myVoucher, errors.New("CreateVoucherObject(): Incorrect number of arguments. Expecting 34 ")
 	}
 
 	myVoucher = VoucherObject{args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14], args[15], args[16], args[17], args[18], args[19], args[20], args[21], args[22], args[23], args[24], args[25], args[26], args[27], args[28], args[29], args[30], args[31], time.Now().Format("20060102150405"), args[33]}
