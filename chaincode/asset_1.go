@@ -104,21 +104,40 @@ type TransactionHistoryObject struct {
 
 // DispatchOrderObject struct
 type VoucherObject struct {
-	VoucherOrderID         string `json:"voucherOrderID"`
-	DispatchOrderID        string `json:"dispatchOrderId"`
-	Stage                  string `json:"stage"`
-	Customer               string `json:"customer"`
-	Transporter            string `json:"transporter"`
-	ShipmentType           string `json:"shipmentType"`
-	DispatchDate           string `json:"dispatchDate"`
-	TransporterRef         string `json:"transporterRef"`
-	LoadingType            string `json:"loadingType"`
-	VehicleType            string `json:"vehicleType"`
-	Weight                 string `json:"weight"`
-	TimeStamp              string `json:"timeStamp"`
-	Amount                 string `json:"amount"`
-	Source                 string `json:"source"`
-	TransactionDescription string `json:"transactionDescription"`
+	VoucherID                      string `json:"voucherOrderID"`
+	DispatchOrderID                string `json:"dispatchOrderId"`
+	Stage                          string `json:"stage"`
+	Customer                       string `json:"customer"`
+	Transporter                    string `json:"transporter"`
+	Seller                         string `json:"seller"`
+	AssetIDs                       string `json:"assetIDs"`
+	AsnNumber                      string `json:"asnNumber"`
+	Source                         string `json:"source"`
+	ShipmentType                   string `json:"shipmentType"`
+	ContractType                   string `json:"contractType"`
+	DeliveryTerm                   string `json:"deliveryTerm"`
+	DispatchDate                   string `json:"dispatchDate"`
+	TransporterRef                 string `json:"transporterRef"`
+	LoadingType                    string `json:"loadingType"` //ource //destination //
+	VehicleType                    string `json:"vehicleType"`
+	Weight                         string `json:"weight"`
+	Consignment                    string `json:"consignment"`
+	Quantity                       string `json:"quantity"`
+	PartNumber                     string `json:"partNumber"`
+	PartName                       string `json:"partName"`
+	OrderRefNum                    string `json:"orderRefNum"`
+	CreatedOn                      string `json:"createdOn"`
+	DocumentID1                    string `json:"documentID1"`
+	DocumentID2                    string `json:"documentID2"`
+	DocumentID3                    string `json:"documentID3"`
+	DocumentID4                    string `json:"documentID4"`
+	DropDescription                string `json:"dropDescription"`
+	Deliverydescription            string `json:"deliverydescription"`
+	InTransitDisptachOfficerSigned string `json:"inTransitDisptachOfficerSigned"`
+	InTransitTransporterSigned     string `json:"inTransitTransporterSigned"`
+	TransactionDescription         string `json:"transactionDescription"`
+	TimeStamp                      string `json:"timeStamp"`
+	Amount                         string `json:"amount"`
 }
 
 type InvoiceObject struct {
@@ -552,15 +571,31 @@ func (t *SimpleChaincode) invokeAsset(stub shim.ChaincodeStubInterface, args []s
 }
 
 func (t *SimpleChaincode) createVoucher(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
-	// var jsonResp string
+	var jsonResp string
 	voucherObject, err := CreateVoucherObject(args[0:])
 	if err != nil {
 		fmt.Println("createVoucher(): Cannot create voucher object \n")
 		return nil, err
 	}
+	fmt.Println("voucherObject is", voucherObject)
+
+	dispatchObject, err := createDispatchOrderObject(args[0:])
+	if err != nil {
+		fmt.Println("createVoucher(): Cannot create dispatch object \n")
+		return nil, err
+	}
+
+	fmt.Println("dispatchObject is", dispatchObject)
+	dispatchObject.Stage = strconv.Itoa(STATE_VOUCHER_CREATED)
+	dispatchOrderBuffer, err := doToJSON(dispatchObject)
+	if err != nil {
+		fmt.Println("createVoucher() : Failed Cannot create dispatch object buffer for write : ", args[0])
+		return nil, errors.New("createVoucher(): Failed Cannot create dispatch object buffer for write : " + args[0])
+	}
+	fmt.Println("dispatch order buff is ", dispatchOrderBuffer)
 
 	// Convert Item Object to JSON
-	fmt.Println("voucherObject is", voucherObject)
+	voucherObject.Stage = strconv.Itoa(STATE_VOUCHER_CREATED)
 	buff, err := voToJSON(voucherObject)
 	fmt.Println("buff is ", buff)
 	if err != nil {
@@ -568,14 +603,15 @@ func (t *SimpleChaincode) createVoucher(stub shim.ChaincodeStubInterface, args [
 		return nil, errors.New("createVoucher(): Failed Cannot create voucher object buffer for write : " + args[0])
 	} else {
 		// Update the voucher table with the Buffer Data and updatedDispatchOrder with recent stage voucher created
-		keys := []string{"voucher", voucherObject.VoucherOrderID, voucherObject.Stage, "invoice"}
+		keys := []string{"voucher", voucherObject.VoucherID, voucherObject.Stage, "invoice"}
 		fmt.Println("createVoucher() keys are :", keys)
 		err = UpdateLedger(stub, "VoucherTable", keys, buff)
 		if err != nil {
 			fmt.Println("createVoucher() : write error while inserting record\n")
 			return buff, err
 		}
-		/*dispatchOrderAsbytes, err := stub.GetState(voucherObject.DispatchOrderID)
+		// adding stage into main contract
+		dispatchOrderAsbytes, err := stub.GetState(voucherObject.DispatchOrderID)
 		if err != nil {
 			jsonResp = "{\"Error\":\"Failed to get state for " + voucherObject.DispatchOrderID + "\"}"
 			return nil, errors.New(jsonResp)
@@ -585,11 +621,11 @@ func (t *SimpleChaincode) createVoucher(stub shim.ChaincodeStubInterface, args [
 			jsonResp := "{\"Error\":\"Failed - contract is null for " + voucherObject.DispatchOrderID + "\"}"
 			return nil, errors.New(jsonResp)
 		}
-		err = stub.PutState(voucherObject.DispatchOrderID, buff)
+		err = stub.PutState(voucherObject.DispatchOrderID, dispatchOrderBuffer)
 		if err != nil {
 			fmt.Println("createVoucher() : write error while inserting record\n")
 			return nil, errors.New("createVoucher() : write error while inserting record : " + err.Error())
-		}*/
+		}
 
 		transactionTime := time.Now().Format("2006-01-02 15:04:05")
 		xy, err3 := stub.GetCallerMetadata()
@@ -784,7 +820,6 @@ func CreateVoucherObject(args []string) (VoucherObject, error) {
 	// S001 LHTMO bosch
 	// var err error to be
 	var myVoucher VoucherObject
-	var dispatchOrder DispatchOrderObject
 
 	// Check there are 3 Arguments provided as per the the struct
 	if len(args) != 31 {
@@ -792,16 +827,7 @@ func CreateVoucherObject(args []string) (VoucherObject, error) {
 		return myVoucher, errors.New("CreateVoucherObject(): Incorrect number of arguments. Expecting 31 ")
 	}
 
-	dispatchOrder = DispatchOrderObject{args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14], args[15], args[16], args[17], args[18], args[19], args[20], args[21], args[22], args[23], args[24], args[25], args[26], args[27], args[28], args[29], args[30], time.Now().Format("20060102150405")}
-	myVoucher.VoucherOrderID = "A" + dispatchOrder.DispatchOrderID
-	myVoucher.DispatchOrderID = dispatchOrder.DispatchOrderID
-	myVoucher.Amount = "zero"
-	myVoucher.LoadingType = dispatchOrder.LoadingType
-	myVoucher.Source = dispatchOrder.Source
-	myVoucher.Transporter = "destination"
-	myVoucher.Weight = dispatchOrder.Weight
-	myVoucher.TransactionDescription = dispatchOrder.TransactionDescription
-	myVoucher.Stage = strconv.Itoa(STATE_VOUCHER_CREATED)
+	myVoucher = VoucherObject{args[0], args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14], args[15], args[16], args[17], args[18], args[19], args[20], args[21], args[22], args[23], args[24], args[25], args[26], args[27], args[28], args[29], args[30], time.Now().Format("20060102150405"), "amount"}
 	return myVoucher, nil
 }
 
