@@ -801,6 +801,7 @@ func CreateVoucherObject(args []string) (VoucherObject, error) {
 	myVoucher.Transporter = "destination"
 	myVoucher.Weight = dispatchOrder.Weight
 	myVoucher.TransactionDescription = dispatchOrder.TransactionDescription
+	myVoucher.Stage = strconv.Itoa(STATE_VOUCHER_CREATED)
 	return myVoucher, nil
 }
 
