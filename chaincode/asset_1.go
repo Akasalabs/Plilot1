@@ -826,6 +826,13 @@ func (t *SimpleChaincode) createInvoice(stub shim.ChaincodeStubInterface, args [
 		}
 		fmt.Println(dat)
 		fmt.Println(dat["dispatchOrderId"])
+		dat["stage"] = strconv.Itoa(STATE_INVOICE_GENERATED)
+		fmt.Println("dispatch order with assets as bytes is ", dat)
+		dispatchOrderAsString, err := json.Marshal(dat)
+		if err != nil {
+			return nil, errors.New("mapAsset(): Failed to convert map into string : " + args[0])
+		}
+		fmt.Println("dispatch order as map converted into json string is ", dispatchOrderAsString)
 
 		//update voucher table data
 		invoiceAmount = invoiceAmount + voucherObjectFromLedger.Amount
@@ -845,6 +852,16 @@ func (t *SimpleChaincode) createInvoice(stub shim.ChaincodeStubInterface, args [
 				fmt.Println("invokeAsset() : write error while inserting record\n")
 				return buff, err
 			}
+
+			//uypdate the block with added Assets
+			err = stub.PutState(dat["dispatchOrderId"], dispatchOrderAsString)
+			if err != nil {
+				fmt.Println("updateDispatchOrder() : write error while inserting record\n")
+				return nil, errors.New("updateDispatchOrder() : write error while inserting record : " + err.Error())
+			}
+
+			//update block chain
+
 		}
 	}
 	//create invoice table
