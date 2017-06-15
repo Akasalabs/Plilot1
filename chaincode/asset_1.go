@@ -1,16 +1,14 @@
 package main
 
 import (
+	"bytes"
+	"encoding/gob"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
 	"strings"
-	//"strconv"
-	"encoding/json"
 	"time"
-	//"strings"
-	"bytes"
-	"encoding/gob"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 )
@@ -801,7 +799,7 @@ func (t *SimpleChaincode) mapAsset(stub shim.ChaincodeStubInterface, args []stri
 func (t *SimpleChaincode) createInvoice(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
 	var jsonResp string
-	invoiceAmount := "zero"
+	invoiceAmount := 0
 	invoiceID := args[0]
 	fmt.Println("invoiceID is" + invoiceID)
 	voucherIds := args[1]
@@ -835,7 +833,12 @@ func (t *SimpleChaincode) createInvoice(stub shim.ChaincodeStubInterface, args [
 		fmt.Println("dispatch order as map converted into json string is ", dispatchOrderAsString)
 
 		//update voucher table data
-		invoiceAmount = invoiceAmount + voucherObjectFromLedger.Amount
+		invoiceAmountAsInt, err := strconv.Atoi(voucherObjectFromLedger.Amount)
+		if err != nil {
+			return nil, errors.New("unable to convert jsonToArgs for" + result[i])
+		}
+		invoiceAmount = invoiceAmount + invoiceAmountAsInt
+		fmt.Println("Invoice amount for", dat["dispatchOrderId"], "is", invoiceAmount)
 		voucherObjectFromLedger.Stage = strconv.Itoa(STATE_INVOICE_GENERATED)
 		buff, err := voToJSON(voucherObjectFromLedger)
 		fmt.Println("buff is ", buff)
@@ -865,7 +868,7 @@ func (t *SimpleChaincode) createInvoice(stub shim.ChaincodeStubInterface, args [
 		}
 	}
 	//create invoice table
-	invoice := []string{invoiceID, voucherIds, strconv.Itoa(STATE_INVOICE_GENERATED), invoiceAmount}
+	invoice := []string{invoiceID, voucherIds, strconv.Itoa(STATE_INVOICE_GENERATED), strconv.Itoa(invoiceAmount)}
 	invoiceObject, err := CreateInvoiceObject(invoice)
 	if err != nil {
 		fmt.Println("invokeAsset(): Cannot create item object \n")
@@ -948,6 +951,13 @@ func CreateVoucherObject(args []string) (VoucherObject, error) {
 	}
 
 	myVoucher = VoucherObject{args[0], args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14], args[15], args[16], args[17], args[18], args[19], args[20], args[21], args[22], args[23], args[24], args[25], args[26], args[27], args[28], args[29], args[30], time.Now().Format("20060102150405"), "amount"}
+	voucherAmount, err := CalculateVoucherAmount(myVoucher)
+	if err != nil {
+		fmt.Println(err)
+		return myVoucher, err
+	}
+
+	myVoucher.Amount = strconv.Itoa(voucherAmount)
 	return myVoucher, nil
 }
 
@@ -980,10 +990,17 @@ func CreateInvoiceObject(args []string) (InvoiceObject, error) {
 	return myInvoice, nil
 }
 
-func CalculateVoucherAmount(VoucherObject) (int, error) {
+func CalculateVoucherAmount(voucherObject VoucherObject) (int, error) {
 
-	voucherAmount := 2000
-	return voucherAmount, nil
+	if voucherObject.Source == "Bangalore Plant" && voucherObject.Customer == "Maruthi" && voucherObject.Weight == "100 ton" {
+		voucherAmount := 100 * 20 * 10000
+		fmt.Println("voucher amount is", voucherAmount)
+
+		return voucherAmount, nil
+	} else {
+		return 1000000, nil
+	}
+
 }
 
 func TRtoJSON(to TransactionHistoryObject) ([]byte, error) {
