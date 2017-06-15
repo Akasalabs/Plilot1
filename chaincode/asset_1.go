@@ -852,7 +852,7 @@ func (t *SimpleChaincode) createInvoice(stub shim.ChaincodeStubInterface, args [
 
 			err = UpdateLedger(stub, "VoucherTable", keys, buff)
 			if err != nil {
-				fmt.Println("invokeAsset() : write error while inserting record\n")
+				fmt.Println("createInvoice() : write error while inserting record\n")
 				return buff, err
 			}
 
@@ -862,9 +862,6 @@ func (t *SimpleChaincode) createInvoice(stub shim.ChaincodeStubInterface, args [
 				fmt.Println("updateDispatchOrder() : write error while inserting record\n")
 				return nil, errors.New("updateDispatchOrder() : write error while inserting record : " + err.Error())
 			}
-
-			//update block chain
-
 		}
 	}
 	//create invoice table
