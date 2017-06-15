@@ -748,14 +748,13 @@ func (t *SimpleChaincode) mapAsset(stub shim.ChaincodeStubInterface, args []stri
 		return nil, errors.New("unable to convert jsonToArgs for" + orderID)
 	}
 	fmt.Println(dat)
+	assetIds := args[1]
+	dat["assetIds"] = assetIds
+	fmt.Println("dispatch order with assets as bytes is ", dat)
 	dispatchOrderAsString, err := json.Marshal(dat)
 	if err != nil {
 		return nil, errors.New("mapAsset(): Failed to convert map into string : " + args[0])
 	}
-	fmt.Println(dispatchOrderAsString)
-	assetIds := args[1]
-	dat["assetIds"] = assetIds
-	fmt.Println("dispatch order with assets as bytes is ", dat)
 	fmt.Println("dispatch order as map converted into json string is ", dispatchOrderAsString)
 
 	/*dispatchOrderWithAssetsAsBytes, err := GetBytes(dat)
