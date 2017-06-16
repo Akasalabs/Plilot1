@@ -196,11 +196,6 @@ eca:
 #               vp0: 4 vp0_secret
 #               vp1: 4 vp1_secret
 
-                bosch_planner:  n21Dq435t9S1 dispacth office
-                bosch_dispatch:  6S0UjokSRHYh planner
-                ksh_transport:  dpodq6r2+NPu transporter
-                ford_inbound:  9XZFoBjXJ5zM buyer
-
                 test_user0: 1 MS9qrN8hFjlE bank_a
                 test_user1: 1 jGlNl6ImkuDo institution_a
                 test_user2: 1 zMflqOKezFiA bank_c

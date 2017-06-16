@@ -32,8 +32,8 @@ const STATE_SHIPMENT_DELIVERED = 5
 const STATE_AMENDED = 6
 const STATE_DROPPED = 7
 const STATE_VOUCHER_CREATED = 8
-const STATE_VOUCHER_VALIDATED = 9
-const STATE_INVOICE_GENERATED = 10
+const STATE_INVOICE_VALIDATED = 10
+const STATE_INVOICE_GENERATED = 9
 
 // DispatchOrderObject struct
 type DispatchOrderObject struct {
@@ -238,8 +238,6 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 		return t.invokeDocument(stub, args)
 	} else if function == "createVoucher" {
 		return t.createVoucher(stub, args)
-	} else if function == "updateVoucher" {
-		return t.updateVoucher(stub, args)
 	} else if function == "createInvoice" {
 		return t.createInvoice(stub, args)
 	}
@@ -269,7 +267,7 @@ func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function strin
 	} else if function == "getVouchers" { //read a contract
 		return t.getVouchers(stub, args)
 	} else if function == "getInvoice" { //read a contract
-		return t.getInvoice(stub, args)
+		return t.getListofInvoices(stub, args)
 	}
 	fmt.Println("query did not find func: " + function) //error
 	return nil, errors.New("Received unknown function query " + function)
@@ -651,7 +649,7 @@ func (t *SimpleChaincode) createVoucher(stub shim.ChaincodeStubInterface, args [
 	}
 }
 
-func (t *SimpleChaincode) updateVoucher(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+/*func (t *SimpleChaincode) updateVoucher(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 	var jsonResp string
 	voucherObject, err := CreateUpdatedVoucherObject(args[:])
 	if err != nil {
@@ -728,7 +726,7 @@ func (t *SimpleChaincode) updateVoucher(stub shim.ChaincodeStubInterface, args [
 		err = UpdateLedger(stub, "TransactionHistory", Trasactionkeys, buffer)
 		return nil, nil
 	}
-}
+}*/
 
 func (t *SimpleChaincode) mapAsset(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
@@ -876,7 +874,8 @@ func (t *SimpleChaincode) createInvoice(stub shim.ChaincodeStubInterface, args [
 	buffInvoice, err := InvoicetoJSON(invoiceObject)
 	fmt.Println("invoice buff is ", buffInvoice)
 
-	keys := []string{"invoice", invoiceID}
+	transactionTime := time.Now().Format("2006-01-02 15:04:05")
+	keys := []string{"invoice", invoiceID, strconv.Itoa(STATE_INVOICE_GENERATED), transactionTime}
 	fmt.Println("createInvoice() keys are :", keys)
 	err = UpdateLedger(stub, "InvoiceTable", keys, buffInvoice)
 	if err != nil {
@@ -887,9 +886,99 @@ func (t *SimpleChaincode) createInvoice(stub shim.ChaincodeStubInterface, args [
 	return []byte("Invoice Created"), nil
 }
 
-//update blockchain
-//create invoice tableName
-//transaction history
+func (t *SimpleChaincode) validateInvoice(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+
+	var jsonResp string
+
+	// takes invoice and updatesinvoicetable
+	if len(args) != 1 {
+		fmt.Println("validateInvoice(): Incorrect number of arguments. Expecting 1 ")
+		return []byte("Invoice validation failed"), errors.New("validateInvoice(): Incorrect number of arguments. Expecting 1 ")
+	}
+	invoiceID := args[0]
+	InvoiceObjectFromLedger, err := getunValidatedInvoice(stub, invoiceID)
+	if err != nil {
+		return nil, fmt.Errorf("validateInvoice() operation failed. Unable to fetch invoice from ledger: %s", err)
+	}
+
+	InvoiceObjectFromLedger.Stage = strconv.Itoa(STATE_INVOICE_VALIDATED)
+
+	newInvoiceObjectbuff, err := InvoicetoJSON(InvoiceObjectFromLedger)
+	fmt.Println("newInvoiceObjectbuff is ", newInvoiceObjectbuff)
+
+	transactionTime := time.Now().Format("2006-01-02 15:04:05")
+	keys := []string{"invoice", invoiceID, strconv.Itoa(STATE_INVOICE_VALIDATED), transactionTime}
+	fmt.Println("createInvoice() keys are :", keys)
+	err = UpdateLedger(stub, "InvoiceTable", keys, newInvoiceObjectbuff)
+	if err != nil {
+		fmt.Println("createInvoice() : write error while inserting record\n")
+		return newInvoiceObjectbuff, err
+	}
+
+	//updates voucher table with state invoice validated
+	// updates blockchain
+
+	voucherIds := InvoiceObjectFromLedger.VoucherList
+	result := strings.Split(voucherIds, ",")
+	for i := range result {
+		keys := []string{"voucher", result[i]}
+		fmt.Println(keys)
+		voucherObjectFromLedger, err := getVoucherFromTable(stub, keys)
+		if err != nil {
+			return nil, fmt.Errorf("createInvoice() operation failed. Error marshaling JSON: %s", err)
+		}
+		//fetching dispatch order from block
+		dispatchOrderAsbytes, err := stub.GetState(result[i])
+		if err != nil {
+			jsonResp = "{\"Error\":\"Failed to get state for " + result[i] + "\"}"
+			return nil, errors.New(jsonResp)
+		}
+
+		dat, err := JSONtoArgs(dispatchOrderAsbytes)
+		if err != nil {
+			return nil, errors.New("unable to convert jsonToArgs for" + result[i])
+		}
+		fmt.Println(dat)
+		fmt.Println(dat["dispatchOrderId"])
+		dat["stage"] = strconv.Itoa(STATE_INVOICE_VALIDATED)
+		fmt.Println("dispatch order with assets as bytes is ", dat)
+		dispatchOrderAsString, err := json.Marshal(dat)
+		if err != nil {
+			return nil, errors.New("mapAsset(): Failed to convert map into string : " + args[0])
+		}
+		fmt.Println("dispatch order as map converted into json string is ", dispatchOrderAsString)
+
+		//update voucher table data
+		voucherObjectFromLedger.Stage = strconv.Itoa(STATE_INVOICE_VALIDATED)
+		buff, err := voToJSON(voucherObjectFromLedger)
+		fmt.Println("buff is ", buff)
+		if err != nil {
+			fmt.Println("createInvoice() : Failed Cannot create object buffer for write : ", args[0])
+			return nil, errors.New("createInvoice(): Failed Cannot create object buffer for write : " + args[0])
+		} else {
+			// Update the table with the Buffer Data
+			keys := []string{"voucher", voucherObjectFromLedger.DispatchOrderID, voucherObjectFromLedger.Stage, invoiceID}
+			fmt.Println("createInvoice() keys are :", keys)
+
+			err = UpdateLedger(stub, "VoucherTable", keys, buff)
+			if err != nil {
+				fmt.Println("createInvoice() : write error while inserting record\n")
+				return buff, err
+			}
+
+			//uypdate the block with added Assets
+			err = stub.PutState(dat["dispatchOrderId"], dispatchOrderAsString)
+			if err != nil {
+				fmt.Println("updateDispatchOrder() : write error while inserting record\n")
+				return nil, errors.New("updateDispatchOrder() : write error while inserting record : " + err.Error())
+			}
+		}
+	}
+
+	//transaction history
+	return []byte("Invoice Validated"), nil
+
+}
 
 // CreateAssetObject creates an asset
 func CreateAssetObject(args []string) (AssetObject, error) {
@@ -1104,7 +1193,7 @@ func (t *SimpleChaincode) getAssets(stub shim.ChaincodeStubInterface, args []str
 	return jsonRows, nil
 }
 
-func (t *SimpleChaincode) getInvoice(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+func (t *SimpleChaincode) getListofInvoices(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
 	rows, err := GetList(stub, "InvoiceTable", args)
 	if err != nil {
@@ -1125,6 +1214,28 @@ func (t *SimpleChaincode) getInvoice(stub shim.ChaincodeStubInterface, args []st
 	}
 	jsonRows, _ := json.Marshal(tlist)
 	return jsonRows, nil
+}
+
+func getunValidatedInvoice(stub shim.ChaincodeStubInterface, InvoiceID string) (InvoiceObject, error) {
+
+	rows, err := GetList(stub, "InvoiceTable", []string{"invoice", InvoiceID, "9"})
+	if err != nil {
+		return InvoiceObject{}, fmt.Errorf("getInvoice() operation failed. Error marshaling JSON: %s", err)
+	}
+
+	nCol := GetNumberOfKeys("InvoiceTable")
+
+	//tlist := make([]InvoiceObject, len(rows))
+	//for i := 0; i < len(rows); i++ {
+	ts := rows[0].Columns[nCol].GetBytes()
+	ar, err := JSONtoInvoice(ts)
+	if err != nil {
+		fmt.Println("GetAssets() Failed : Ummarshall error")
+		return InvoiceObject{}, fmt.Errorf("GetAssets() operation failed. %s", err)
+	}
+	//tlist[i] = ar
+	//}
+	return ar, nil
 }
 
 func getAssetFromTable(stub shim.ChaincodeStubInterface, args []string) (AssetObject, error) {
