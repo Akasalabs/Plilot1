@@ -240,6 +240,8 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 		return t.createVoucher(stub, args)
 	} else if function == "createInvoice" {
 		return t.createInvoice(stub, args)
+	} else if function == "validateInvoice" {
+		return t.validateInvoice(stub, args)
 	}
 	fmt.Println("invoke did not find func: " + function) //error
 	return nil, errors.New("Received unknown function invocation: " + function)
