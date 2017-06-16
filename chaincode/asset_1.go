@@ -154,7 +154,7 @@ func GetNumberOfKeys(tname string) int {
 		"TransactionHistory": 3,
 		"DocumentTable":      3,
 		"VoucherTable":       4,
-		"InvoiceTable":       2, //"invoice","invoiceIds","stringof dispatch orders",buff -"amount"
+		"InvoiceTable":       4, //"invoice","invoiceIds","stringof dispatch orders",buff -"amount"
 	}
 	return TableMap[tname]
 }
