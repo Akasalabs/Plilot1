@@ -962,7 +962,7 @@ func (t *SimpleChaincode) validateInvoice(stub shim.ChaincodeStubInterface, args
 			keys := []string{"voucher", voucherObjectFromLedger.DispatchOrderID, voucherObjectFromLedger.Stage, invoiceID}
 			fmt.Println("createInvoice() keys are :", keys)
 
-			err = ReplaceRowInLedger(stub, "VoucherTable", keys, buff)
+			err = UpdateLedger(stub, "VoucherTable", keys, buff)
 			if err != nil {
 				fmt.Println("createInvoice() : write error while inserting record\n")
 				return buff, err
