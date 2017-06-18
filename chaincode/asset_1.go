@@ -911,7 +911,7 @@ func (t *SimpleChaincode) validateInvoice(stub shim.ChaincodeStubInterface, args
 	transactionTime := time.Now().Format("2006-01-02 15:04:05")
 	keys := []string{"invoice", invoiceID, strconv.Itoa(STATE_INVOICE_VALIDATED), transactionTime}
 	fmt.Println("createInvoice() keys are :", keys)
-	err = ReplaceRowInLedger(stub, "InvoiceTable", keys, newInvoiceObjectbuff)
+	err = UpdateLedger(stub, "InvoiceTable", keys, newInvoiceObjectbuff)
 	if err != nil {
 		fmt.Println("createInvoice() : write error while inserting record\n")
 		return newInvoiceObjectbuff, err
