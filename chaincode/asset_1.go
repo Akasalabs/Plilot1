@@ -879,7 +879,7 @@ func (t *SimpleChaincode) createInvoice(stub shim.ChaincodeStubInterface, args [
 	transactionTime := time.Now().Format("2006-01-02 15:04:05")
 	keys := []string{"invoice", invoiceID, strconv.Itoa(STATE_INVOICE_GENERATED), transactionTime}
 	fmt.Println("createInvoice() keys are :", keys)
-	err = ReplaceRowInLedger(stub, "InvoiceTable", keys, buffInvoice)
+	err = UpdateLedger(stub, "InvoiceTable", keys, buffInvoice)
 	if err != nil {
 		fmt.Println("createInvoice() : write error while inserting record\n")
 		return buffInvoice, err
