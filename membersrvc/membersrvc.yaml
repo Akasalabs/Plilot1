@@ -206,11 +206,11 @@ eca:
                 test_user7: 1 YsWZD4qQmYxo institution_a
                 test_user8: 1 W8G0usrU7jRk bank_a
                 test_user9: 1 H80SiB5ODKKQ institution_a
-                test_user10: 1 n21Dq435t9S1 bank_b
-                test_user11: 1 6S0UjokSRHYh institution_a
-                test_user12: 1 dpodq6r2+NPu institution_a
-                test_user13: 1 9XZFoBjXJ5zM institution_a
-                test_user14: 1 6lOOiQXW5uXM institution_a
+                bosch_planner: 1 n21Dq435t9S1 bank_b
+                bosch_dispatch: 1 6S0UjokSRHYh institution_a
+                ksh_transport: 1 dpodq6r2+NPu institution_a
+                ford_inbound: 1 9XZFoBjXJ5zM institution_a
+                bosch_finance: 1 6lOOiQXW5uXM institution_a
                 test_user15: 1 PTyW9AVbBSjk institution_a
                 test_user16: 1 wcaTkxDKsPCM institution_a
                 test_user17: 1 rbHqY17olLAD institution_a
@@ -272,7 +272,6 @@ eca:
                 test_nvp7: 2 E7FAJUtWVn2h institution_a
                 test_nvp8: 2 LJu8DkUilBEH bank_a
                 test_nvp9: 2 VlEsBsiyXSjw institution_a
-
 
 tca:
           # Enabling/disabling attributes encryption, currently false is unique possible value due attributes encryption is not yet implemented.
