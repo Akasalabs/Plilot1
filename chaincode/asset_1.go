@@ -32,8 +32,9 @@ const STATE_SHIPMENT_DELIVERED = 5
 const STATE_AMENDED = 6
 const STATE_DROPPED = 7
 const STATE_VOUCHER_CREATED = 8
+const STATE_VOUCHER_VALIDATED = 9
 const STATE_INVOICE_VALIDATED = 10
-const STATE_INVOICE_GENERATED = 9
+const STATE_INVOICE_GENERATED = 11
 
 // DispatchOrderObject struct
 type DispatchOrderObject struct {
@@ -153,7 +154,7 @@ func GetNumberOfKeys(tname string) int {
 		"AssetTable":         3,
 		"TransactionHistory": 3,
 		"DocumentTable":      3,
-		"VoucherTable":       4,
+		"VoucherTable":       3,
 		"InvoiceTable":       4, //"invoice","invoiceIds","stringof dispatch orders",buff -"amount"
 	}
 	return TableMap[tname]
@@ -605,7 +606,7 @@ func (t *SimpleChaincode) createVoucher(stub shim.ChaincodeStubInterface, args [
 		return nil, errors.New("createVoucher(): Failed Cannot create voucher object buffer for write : " + args[0])
 	} else {
 		// Update the voucher table with the Buffer Data and updatedDispatchOrder with recent stage voucher created
-		keys := []string{"voucher", voucherObject.VoucherID, voucherObject.Stage, "invoice"}
+		keys := []string{"voucher", voucherObject.VoucherID, "invoice"}
 		fmt.Println("createVoucher() keys are :", keys)
 		err = UpdateLedger(stub, "VoucherTable", keys, buff)
 		if err != nil {
@@ -651,7 +652,7 @@ func (t *SimpleChaincode) createVoucher(stub shim.ChaincodeStubInterface, args [
 	}
 }
 
-/*func (t *SimpleChaincode) updateVoucher(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+func (t *SimpleChaincode) updateVoucher(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 	var jsonResp string
 	voucherObject, err := CreateUpdatedVoucherObject(args[:])
 	if err != nil {
@@ -684,9 +685,9 @@ func (t *SimpleChaincode) createVoucher(stub shim.ChaincodeStubInterface, args [
 		return nil, errors.New("createVoucher(): Failed Cannot create voucher object buffer for write : " + args[0])
 	} else {
 		// Update the voucher table with the Buffer Data and updatedDispatchOrder with recent stage voucher created
-		keys := []string{"voucher", voucherObject.VoucherID, voucherObject.Stage, "invoice"}
+		keys := []string{"voucher", voucherObject.VoucherID, "invoice"}
 		fmt.Println("createVoucher() keys are :", keys)
-		err = UpdateLedger(stub, "VoucherTable", keys, buff)
+		err = ReplaceRowInLedger(stub, "VoucherTable", keys, buff)
 		if err != nil {
 			fmt.Println("createVoucher() : write error while inserting record\n")
 			return buff, err
@@ -728,7 +729,7 @@ func (t *SimpleChaincode) createVoucher(stub shim.ChaincodeStubInterface, args [
 		err = UpdateLedger(stub, "TransactionHistory", Trasactionkeys, buffer)
 		return nil, nil
 	}
-}*/
+}
 
 func (t *SimpleChaincode) mapAsset(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
