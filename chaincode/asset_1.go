@@ -1083,15 +1083,37 @@ func CreateInvoiceObject(args []string) (InvoiceObject, error) {
 
 func CalculateVoucherAmount(voucherObject VoucherObject) (int, error) {
 
-	if voucherObject.Source == "Bangalore Plant" && voucherObject.Customer == "Maruthi" && voucherObject.Weight == "100 ton" {
-		voucherAmount := 100 * 20 * 10000
-		fmt.Println("voucher amount is", voucherAmount)
+	weight, err := strconv.Atoi(voucherObject.Weight)
+	if err != nil {
+		return 0, errors.New("CalculateVoucherAmount: Unable to convert weight to int")
 
-		return voucherAmount, nil
-	} else {
-		return 1000000, nil
 	}
-
+	if voucherObject.LoadingType == "LTL" {
+		if voucherObject.Customer == "Maruthi Pune" {
+			return (2500 * weight), nil
+		} else if voucherObject.Customer == "Ashok Leyland Hosur" {
+			return (125 * weight), nil
+		} else if voucherObject.Customer == "Ford Chennai" {
+			return (1100 * weight), nil
+		}
+	} else if voucherObject.LoadingType == "FTL" && voucherObject.VehicleType == "16 Tonner" {
+		if voucherObject.Customer == "Maruthi Pune" {
+			return (2500 * 16), nil
+		} else if voucherObject.Customer == "Ashok Leyland Hosur" {
+			return (125 * 16), nil
+		} else if voucherObject.Customer == "Ford Chennai" {
+			return (1100 * 16), nil
+		}
+	} else if voucherObject.LoadingType == "FTL" && voucherObject.VehicleType == "21 Tonner" {
+		if voucherObject.Customer == "Maruthi Pune" {
+			return (2500 * 21), nil
+		} else if voucherObject.Customer == "Ashok Leyland Hosur" {
+			return (125 * 21), nil
+		} else if voucherObject.Customer == "Ford Chennai" {
+			return (1100 * 21), nil
+		}
+	}
+	return 0, nil
 }
 
 func TRtoJSON(to TransactionHistoryObject) ([]byte, error) {
