@@ -237,8 +237,10 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 		return t.mapAsset(stub, args)
 	} else if function == "createDocument" {
 		return t.invokeDocument(stub, args)
-	} else if function == "createVoucher" {
-		return t.createVoucher(stub, args)
+	} else if function == "updateeVoucher" {
+		return t.updateVoucher(stub, args)
+	} else if function == "validateInvoice" {
+		return t.validateInvoice(stub, args)
 	} else if function == "createInvoice" {
 		return t.createInvoice(stub, args)
 	} else if function == "validateInvoice" {
